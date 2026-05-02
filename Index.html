@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>🌸 Mon RPG de Vie</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#120810}
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-thumb{background:#7b2d5e;border-radius:4px}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useCallback}=React;
+
+/* 🌸 PERSONNALISE ICI */
+const STATS=[
+  {key:"intelligence",label:"Intelligence",icon:"📚",color:"#f9a8d4"},
+  {key:"cuisine",label:"Cuisine",icon:"🍳",color:"#fda4af"},
+  {key:"sport",label:"Sport",icon:"💪",color:"#c4b5fd"},
+  {key:"social",label:"Social",icon:"💌",color:"#fbcfe8"},
+  {key:"creativite",label:"Créativité",icon:"🎀",color:"#f5d0fe"},
+  {key:"bienetre",label:"Bien-être",icon:"🌸",color:"#fecdd3"},
+];
+const AVATAR="🧸";
+const PSEUDO_DEFAUT="Aventurière";
+const XP={easy:15,medium:30,hard:50};
+const XP_PAR_NIVEAU=100;
+/* FIN PERSONNALISATION */
+
+const T={bg:"#120810",panel:"#1e0d1a",border:"#4a1942",borderGlow:"#8b2e7a",
+  text:"#fce7f3",muted:"#9d4f86",accent:"#f9a8d4",deep:"#e879f9",gold:"#f5d0fe"};
+
+const INIT={
+  playerName:PSEUDO_DEFAUT,
+  stats:Object.fromEntries(STATS.map(s=>[s.key,0])),
+  tasks:[
+    {id:1,title:"Réviser 20 min",stat:"intelligence",difficulty:"easy",done:false},
+    {id:2,title:"Préparer un repas",stat:"cuisine",difficulty:"medium",done:false},
+    {id:3,title:"10 min de mouvement",stat:"sport",difficulty:"easy",done:false},
+  ],
+  done:[],nextId:4
+};
+
+function xp(v){return{level:Math.floor(v/XP_PAR_NIVEAU)+1,cur:v%XP_PAR_NIVEAU,max:XP_PAR_NIVEAU}}
+function load(){try{const r=localStorage.getItem("rpg");return r?JSON.parse(r):INIT}catch{return INIT}}
+function write(s){try{localStorage.setItem("rpg",JSON.stringify(s))}catch{}}
+
+function Bar({stat,val}){
+  const{level,cur,max}=xp(val);
+  return(
+    <div style={{marginBottom:18}}>
+      <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}>
+        <span style={{fontFamily:"VT323",fontSize:21,color:stat.color}}>{stat.icon}  {stat.label}</span>
+        <span style={{fontFamily:"'Press Start 2P'",fontSize:8,color:T.muted}}>Niv.{level}</span>
+      </div>
+      <div style={{background:T.bg,border:`2px solid ${T.border}`,height:13,position:"relative"}}>
+        <div style={{width:`${(cur/max)*100}%`,height:"100%",
+          background:`linear-gradient(90deg,${stat.color}66,${stat.color})`,
+          boxShadow:`0 0 10px ${stat.color}99`,transition:"width 0.7s"}}/>
+        <span style={{position:"absolute",right:6,top:"50%",transform:"translateY(-50%)",
+          fontFamily:"'Press Start 2P'",fontSize:7,color:T.muted}}>{cur}/{max}</span>
+      </div>
+    </div>
+  );
+}
+
+function Card({task,onDone,onDel}){
+  const s=STATS.find(x=>x.key===task.stat);
+  return(
+    <div style={{border:`2px solid ${task.done?T.border:s?.color+"55"}`,
+      background:task.done?"#170d15":T.panel,padding:"11px 14px",marginBottom:10,
+      display:"flex",alignItems:"center",gap:12,opacity:task.done?0.5:1,
+      position:"relative",overflow:"hidden"}}>
+      {!task.done&&<div style={{position:"absolute",left:0,top:0,bottom:0,width:3,
+        background:s?.color,boxShadow:`0 0 8px ${s?.color}`}}/>}
+      <button onClick={()=>!task.done&&onDone(task.id)} style={{width:22,height:22,
+        border:`2px solid ${task.done?T.border:s?.color}`,
+        background:task.done?T.border:"transparent",cursor:task.done?"default":"pointer",
+        display:"flex",alignItems:"center",justifyContent:"center",color:T.text,fontSize:12,flexShrink:0}}>
+        {task.done?"✓":""}
+      </button>
+      <div style={{flex:1}}>
+        <div style={{fontFamily:"VT323",fontSize:20,color:task.done?T.muted:T.text,
+          textDecoration:task.done?"line-through":"none"}}>{task.title}</div>
+        <div style={{display:"flex",gap:10,marginTop:2}}>
+          <span style={{fontFamily:"'Press Start 2P'",fontSize:7,color:s?.color}}>{s?.icon} {s?.label}</span>
+          <span style={{fontFamily:"'Press Start 2P'",fontSize:7,color:T.muted}}>+{XP[task.difficulty]} XP</span>
+        </div>
+      </div>
+      <button onClick={()=>onDel(task.id)} style={{background:"none",border:"none",
+        color:T.muted,cursor:"pointer",fontSize:14,padding:"0 4px"}}>✕</button>
+    </div>
+  );
+}
+
+function Toast({stat,level,onClose}){
+  useEffect(()=>{const t=setTimeout(onClose,3000);return()=>clearTimeout(t)},[]);
+  const s=STATS.find(x=>x.key===stat);
+  return(
+    <div style={{position:"fixed",top:20,left:"50%",transform:"translateX(-50%)",
+      background:T.panel,border:`3px solid ${s?.color}`,
+      boxShadow:`0 0 40px ${s?.color}88`,padding:"18px 32px",zIndex:999,textAlign:"center"}}>
+      <div style={{fontFamily:"'Press Start 2P'",fontSize:11,color:s?.color,marginBottom:8}}>✨ LEVEL UP !</div>
+      <div style={{fontFamily:"VT323",fontSize:24,color:T.text}}>{s?.icon} {s?.label} → Niveau {level}</div>
+    </div>
+  );
+}
+
+function App(){
+  const[state,setState]=useState(load);
+  const[tab,setTab]=useState("quetes");
+  const[showAdd,setShowAdd]=useState(false);
+  const[form,setForm]=useState({title:"",stat:"intelligence",difficulty:"easy"});
+  const[toast,setToast]=useState(null);
+  const[editName,setEditName]=useState(false);
+  const[nameInput,setNameInput]=useState("");
+
+  useEffect(()=>{write(state)},[state]);
+
+  const done=useCallback(id=>{
+    setState(p=>{
+      const t=p.tasks.find(x=>x.id===id);
+      if(!t||t.done)return p;
+      const oldV=p.stats[t.stat]||0,newV=oldV+XP[t.difficulty];
+      if(xp(newV).level>xp(oldV).level)setToast({stat:t.stat,level:xp(newV).level});
+      return{...p,stats:{...p.stats,[t.stat]:newV},
+        tasks:p.tasks.map(x=>x.id===id?{...x,done:true}:x),
+        done:[...p.done,{...t,at:Date.now()}]};
+    });
+  },[]);
+
+  const del=id=>setState(p=>({...p,tasks:p.tasks.filter(t=>t.id!==id)}));
+
+  const add=()=>{
+    if(!form.title.trim())return;
+    setState(p=>({...p,tasks:[...p.tasks,{...form,id:p.nextId,done:false}],nextId:p.nextId+1}));
+    setForm({title:"",stat:"intelligence",difficulty:"easy"});
+    setShowAdd(false);
+  };
+
+  const totalLvl=STATS.reduce((a,s)=>a+xp(state.stats[s.key]||0).level,0);
+  const nbDone=state.tasks.filter(t=>t.done).length;
+
+  const tabBtn=(k,l)=>(
+    <button key={k} onClick={()=>setTab(k)} style={{flex:1,padding:"13px 4px",
+      background:tab===k?T.panel:"transparent",border:"none",
+      borderBottom:tab===k?`3px solid ${T.accent}`:"3px solid transparent",
+      color:tab===k?T.accent:T.muted,cursor:"pointer",
+      fontFamily:"'Press Start 2P'",fontSize:7}}>{l}</button>
+  );
+
+  return(
+    <div style={{background:T.bg,minHeight:"100vh",color:T.text,paddingBottom:50}}>
+      <style>{`button{transition:filter .15s}button:hover{filter:brightness(1.25)}
+        input,select{background:${T.bg};border:2px solid ${T.border};color:${T.text};
+        padding:9px 10px;font-family:VT323;font-size:19px;outline:none;width:100%}
+        input:focus,select:focus{border-color:${T.accent}}`}
+      </style>
+
+      {toast&&<Toast stat={toast.stat} level={toast.level} onClose={()=>setToast(null)}/>}
+
+      <div style={{background:T.panel,borderBottom:`3px solid ${T.border}`,
+        padding:"16px 20px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <div>
+          <div style={{fontFamily:"'Press Start 2P'",fontSize:7,color:T.accent,letterSpacing:2,marginBottom:5}}>✦ LIFE RPG ✦</div>
+          {editName?(
+            <div style={{display:"flex",gap:8}}>
+              <input value={nameInput} onChange={e=>setNameInput(e.target.value)}
+                onKeyDown={e=>{if(e.key==="Enter"){setState(p=>({...p,playerName:nameInput||p.playerName}));setEditName(false)}}}
+                style={{fontSize:17,width:150}} autoFocus/>
+              <button onClick={()=>{setState(p=>({...p,playerName:nameInput||p.playerName}));setEditName(false)}}
+                style={{background:T.accent,border:"none",color:T.bg,padding:"4px 10px",
+                  cursor:"pointer",fontFamily:"'Press Start 2P'",fontSize:8}}>OK</button>
+            </div>
+          ):(
+            <div style={{fontFamily:"VT323",fontSize:28,color:T.text,cursor:"pointer"}}
+              onClick={()=>{setNameInput(state.playerName);setEditName(true)}}>
+              {state.playerName} <span style={{fontSize:15,color:T.muted}}>✎</span>
+            </div>
+          )}
+        </div>
+        <div style={{textAlign:"right"}}>
+          <div style={{fontFamily:"'Press Start 2P'",fontSize:7,color:T.muted,marginBottom:4}}>NIVEAU TOTAL</div>
+          <div style={{fontFamily:"VT323",fontSize:40,color:T.gold,lineHeight:1}}>{totalLvl}</div>
+        </div>
+      </div>
+
+      <div style={{display:"flex",borderBottom:`2px solid ${T.border}`}}>
+        {tabBtn("quetes","⚔ Quêtes")}
+        {tabBtn("stats","🌸 Stats")}
+        {tabBtn("journal","📜 Journal")}
+      </div>
+
+      <div style={{padding:"22px 16px",maxWidth:600,margin:"0 auto"}}>
+
+        {tab==="quetes"&&<>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+            <div style={{fontFamily:"'Press Start 2P'",fontSize:8,color:T.accent}}>QUÊTES DU JOUR</div>
+            <div style={{fontFamily:"VT323",fontSize:20,color:T.muted}}>{nbDone}/{state.tasks.length}</div>
+          </div>
+          <div style={{background:T.bg,border:`2px solid ${T.border}`,height:8,marginBottom:20}}>
+            <div style={{width:`${state.tasks.length?(nbDone/state.tasks.length)*100:0}%`,height:"100%",
+              background:`linear-gradient(90deg,${T.accent}77,${T.deep})`,
+              boxShadow:`0 0 8px ${T.accent}`,transition:"width 0.5s"}}/>
+          </div>
+          {state.tasks.length===0&&<div style={{textAlign:"center",padding:48,color:T.muted,fontFamily:"VT323",fontSize:21}}>
+            Aucune quête active.<br/>Ajoute ta première mission ! 🌸</div>}
+          {state.tasks.map(t=><Card key={t.id} task={t} onDone={done} onDel={del}/>)}
+          {showAdd?(
+            <div style={{border:`2px solid ${T.border}`,background:T.panel,padding:18,marginTop:14}}>
+              <div style={{fontFamily:"VT323",fontSize:18,color:T.accent,marginBottom:14}}>✦ NOUVELLE QUÊTE</div>
+              <input placeholder="Nom de la quête..." value={form.title}
+                onChange={e=>setForm(p=>({...p,title:e.target.value}))}
+                onKeyDown={e=>e.key==="Enter"&&add()} style={{marginBottom:10}}/>
+              <div style={{display:"flex",gap:8,marginBottom:12}}>
+                <select value={form.stat} onChange={e=>setForm(p=>({...p,stat:e.target.value}))}>
+                  {STATS.map(s=><option key={s.key} value={s.key}>{s.icon} {s.label}</option>)}
+                </select>
+                <select value={form.difficulty} onChange={e=>setForm(p=>({...p,difficulty:e.target.value}))}>
+                  <option value="easy">+15 XP — Facile</option>
+                  <option value="medium">+30 XP — Moyen</option>
+                  <option value="hard">+50 XP — Difficile</option>
+                </select>
+              </div>
+              <div style={{display:"flex",gap:8}}>
+                <button onClick={add} style={{flex:1,background:T.accent,border:"none",color:T.bg,
+                  padding:"11px",fontFamily:"'Press Start 2P'",fontSize:8,cursor:"pointer"}}>AJOUTER</button>
+                <button onClick={()=>setShowAdd(false)} style={{background:"none",
+                  border:`2px solid ${T.border}`,color:T.muted,
+                  padding:"11px 16px",fontFamily:"'Press Start 2P'",fontSize:8,cursor:"pointer"}}>✕</button>
+              </div>
+            </div>
+          ):(
+            <div style={{display:"flex",gap:8,marginTop:14}}>
+              <button onClick={()=>setShowAdd(true)} style={{flex:1,
+                border:`2px dashed ${T.borderGlow}`,background:"transparent",
+                color:T.accent,padding:"13px",cursor:"pointer",
+                fontFamily:"'Press Start 2P'",fontSize:8}}>+ NOUVELLE QUÊTE</button>
+              {nbDone>0&&<button onClick={()=>setState(p=>({...p,tasks:p.tasks.map(t=>({...t,done:false}))}))}
+                style={{border:`2px solid ${T.border}`,background:"none",color:T.muted,
+                  padding:"13px",cursor:"pointer",fontFamily:"'Press Start 2P'",fontSize:7}}>↺ RESET</button>}
+            </div>
+          )}
+        </>}
+
+        {tab==="stats"&&<>
+          <div style={{fontFamily:"'Press Start 2P'",fontSize:8,color:T.accent,marginBottom:22}}>FICHE DE PERSONNAGE</div>
+          <div style={{border:`2px solid ${T.borderGlow}`,background:T.panel,padding:18,marginBottom:26,
+            display:"flex",gap:18,alignItems:"center",boxShadow:`0 0 20px ${T.accent​​​​​​​​​​​​​​​​
