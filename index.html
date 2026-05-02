@@ -11,34 +11,54 @@
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:#150d1e;font-family:'VT323',monospace}
+body{background:#150d1e}
 ::-webkit-scrollbar{width:5px}
 ::-webkit-scrollbar-thumb{background:#7b2d5e;border-radius:4px}
-input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
 </style>
 </head>
-<body><div id="root"></div>
+<body>
+<div id="root"></div>
 <script type="text/babel">
-const {useState,useEffect,useCallback,useRef}=React;
+const {useState, useEffect, useCallback} = React;
 
-/* ═══════════════════════════════════════════
-THÈME — change les couleurs ici
-═══════════════════════════════════════════ */
-const T={
-bg:”#150d1e”, panel:”#1f1030”, panel2:”#2a1540”,
-border:”#4a2060”, glow:”#7a3090”,
-text:”#ffe4f0”, muted:”#9b6aaa”,
-accent:”#ffaed6”, lav:”#c9a8ff”, peach:”#ffb3a0”,
-gold:”#ffd580”, green:”#98f5c0”, red:”#ff8fa0”,
-};
+// ═══ THÈME ═══
+const BG=”#150d1e”, PANEL=”#1f1030”, PANEL2=”#2a1540”;
+const BORDER=”#4a2060”, GLOW=”#7a3090”;
+const TEXT=”#ffe4f0”, MUTED=”#9b6aaa”;
+const ACCENT=”#ffaed6”, LAV=”#c9a8ff”, PEACH=”#ffb3a0”;
+const GOLD=”#ffd580”, GREEN=”#98f5c0”, RED=”#ff8fa0”;
 
 const COLORS=[”#ffaed6”,”#ffb3e6”,”#ffd6f0”,”#c9a8ff”,”#fda4af”,”#f9a8d4”,”#b8a2ff”,”#fbcfe8”,”#fecdd3”,”#f5d0fe”,”#99f6e4”,”#86efac”];
-const XP_BASE={easy:15,medium:30,hard:50};
-const XP_BONUS=20, XP_MAX=100;
-const MOTIVS=[“Tu es capable de tout ! 💕”,“Chaque petit pas compte ✨”,“Tu brilles déjà 🌟”,“La régularité bat le talent 🎀”,“Fière de toi avant même de commencer 🌸”,“Ton futur toi te remercie 💖”,“T’es incroyable 🦋”,“Une quête à la fois, princesse ⭐”];
+const EMOJIS=[“📚”,“🎓”,“🧠”,“✏️”,“🍳”,“🥗”,“🍰”,“☕”,“💪”,“🏃”,“🧘”,“⚽”,“💌”,“👯”,“🏠”,“❤️”,“🎀”,“🎨”,“🎵”,“✍️”,“🌸”,“🌙”,“🛁”,“😴”,“⭐”,“🦋”,“💎”,“🔥”,“🌈”,“🎯”,“🧩”,“🎮”];
 
-/* ═══ INIT DATA ═══ */
-const DSTATS=[
+const XP_EASY=15, XP_MED=30, XP_HARD=50, XP_BONUS=20, XP_MAX=100;
+const MOTIVS=[“Tu es capable de tout ! 💕”,“Chaque petit pas compte ✨”,“Tu brilles déjà 🌟”,“La régularité bat le talent 🎀”,“Fière de toi 🌸”,“Ton futur toi te remercie 💖”,“T’es incroyable 🦋”,“Une quête à la fois, princesse ⭐”];
+
+// ═══ STYLES RÉUTILISABLES ═══
+const inpStyle = {
+background: PANEL2, border: “1px solid “+BORDER, color: TEXT,
+padding: “8px 10px”, fontFamily: “VT323”, fontSize: “18px”,
+outline: “none”, width: “100%”
+};
+const btnPink = {
+background: ACCENT, border: “none”, color: BG,
+padding: “11px”, fontFamily: “‘Press Start 2P’”, fontSize: “7px”, cursor: “pointer”, width: “100%”
+};
+const btnGhost = {
+background: “transparent”, border: “1px dashed “+GLOW, color: ACCENT,
+padding: “13px”, fontFamily: “‘Press Start 2P’”, fontSize: “7px”, cursor: “pointer”, width: “100%”
+};
+
+// ═══ HELPERS ═══
+function mkLvl(xp) {
+return { level: Math.floor(xp/XP_MAX)+1, cur: xp%XP_MAX, max: XP_MAX };
+}
+function uid() { return Date.now().toString(36)+Math.random().toString(36).slice(2); }
+function daysLeft(d) { return Math.ceil((new Date(d) - new Date()) / 86400000); }
+function getXpBase(diff) { return diff===“easy”?XP_EASY:diff===“medium”?XP_MED:XP_HARD; }
+
+// ═══ DONNÉES PAR DÉFAUT ═══
+const DEFAULT_CFG = [
 {key:“s1”,label:“Intelligence”,icon:“📚”,color:”#f9a8d4”,subs:[{key:“ss1”,label:“Cours”,icon:“🖊️”},{key:“ss2”,label:“Langues”,icon:“💬”},{key:“ss3”,label:“Culture G.”,icon:“🌍”}]},
 {key:“s2”,label:“Cuisine”,icon:“🍳”,color:”#fda4af”,subs:[{key:“ss4”,label:“Plats”,icon:“🍜”},{key:“ss5”,label:“Pâtisserie”,icon:“🍰”}]},
 {key:“s3”,label:“Sport”,icon:“💪”,color:”#c9a8ff”,subs:[{key:“ss6”,label:“Cardio”,icon:“🏃”},{key:“ss7”,label:“Yoga”,icon:“🧘”},{key:“ss8”,label:“Muscu”,icon:“🏋️”}]},
@@ -47,566 +67,639 @@ const DSTATS=[
 {key:“s6”,label:“Bien-être”,icon:“🌸”,color:”#fecdd3”,subs:[{key:“ss14”,label:“Méditation”,icon:“🌙”},{key:“ss15”,label:“Soins”,icon:“🛁”},{key:“ss16”,label:“Sommeil”,icon:“😴”}]},
 ];
 
-function mkXp(xp){return{level:Math.floor(xp/XP_MAX)+1,cur:xp%XP_MAX,max:XP_MAX}}
-function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2)}
-function daysLeft(d){return Math.ceil((new Date(d)-new Date())/(864e5))}
+function buildStats(cfg) {
+const stats={}, subs={};
+cfg.forEach(function(s){ stats[s.key]=0; s.subs.forEach(function(x){subs[x.key]=0;}); });
+return {stats, subs};
+}
 
-function buildInit(){
-const stats={},subs={};
-DSTATS.forEach(s=>{stats[s.key]=0;s.subs.forEach(x=>{subs[x.key]=0})});
-return{playerName:“Aventurière”,cfg:DSTATS,stats,subStats:subs,
-tasks:[
+function buildInit() {
+const {stats,subs} = buildStats(DEFAULT_CFG);
+return {
+playerName: “Aventurière”,
+cfg: DEFAULT_CFG,
+stats: stats,
+subStats: subs,
+tasks: [
 {id:uid(),title:“Réviser 20 min”,sk:“s1”,sub:“ss1”,diff:“easy”,timer:25,deadline:null,done:false,at:null},
 {id:uid(),title:“Préparer un repas”,sk:“s2”,sub:“ss4”,diff:“medium”,timer:null,deadline:null,done:false,at:null},
 {id:uid(),title:“10 min de yoga”,sk:“s3”,sub:“ss7”,diff:“easy”,timer:10,deadline:null,done:false,at:null},
 ],
-done:[],nextColor:0};
+done: [],
+};
 }
 
-const KEY=“rpg-v4”;
-function load(){try{const r=localStorage.getItem(KEY);return r?JSON.parse(r):buildInit()}catch{return buildInit()}}
-function save(s){try{localStorage.setItem(KEY,JSON.stringify(s))}catch{}}
-
-/* ═══ PETITS COMPOSANTS ═══ */
-
-function ProgressBar({cur,max,color,h=10}){
-return <div style={{background:T.bg,border:`1px solid ${T.border}`,height:h,borderRadius:2}}>
-<div style={{width:`${Math.min((cur/max)*100,100)}%`,height:“100%”,borderRadius:2,
-background:`linear-gradient(90deg,${color}55,${color})`,boxShadow:`0 0 8px ${color}66`,transition:“width .6s”}}/>
-
-  </div>;
+const SAVE_KEY = “rpg-v5”;
+function loadState() {
+try { var r=localStorage.getItem(SAVE_KEY); return r ? JSON.parse(r) : buildInit(); }
+catch(e) { return buildInit(); }
+}
+function saveState(s) {
+try { localStorage.setItem(SAVE_KEY, JSON.stringify(s)); } catch(e) {}
 }
 
-function Badge({deadline}){
-const d=daysLeft(deadline);
-const col=d<0?T.red:d<=3?T.peach:T.lav;
-const lbl=d<0?“En retard !”:d===0?“Aujourd’hui !”:d===1?“Demain”:`${d} jours`;
-return <span style={{fontFamily:”‘Press Start 2P’”,fontSize:6,color:col,
-border:`1px solid ${col}`,padding:“2px 6px”,marginLeft:6}}>📅 {lbl}</span>;
+// ═══ COMPOSANTS UI ═══
+
+function Bar({cur, max, color, h}) {
+var h2 = h || 10;
+var pct = Math.min((cur/max)*100, 100);
+return (
+<div style={{background:BG, border:“1px solid “+BORDER, height:h2, borderRadius:2}}>
+<div style={{width:pct+”%”, height:“100%”, borderRadius:2,
+background:“linear-gradient(90deg,”+color+“55,”+color+”)”,
+boxShadow:“0 0 8px “+color+“66”, transition:“width .6s”}}/>
+</div>
+);
 }
 
-function Toast({events,onClose}){
-useEffect(()=>{const t=setTimeout(onClose,4000);return()=>clearTimeout(t)},[]);
-return <div style={{position:“fixed”,top:20,left:“50%”,transform:“translateX(-50%)”,
-background:T.panel2,border:`2px solid ${T.accent}`,boxShadow:`0 0 40px ${T.accent}55`,
+function DeadlineBadge({deadline}) {
+var d = daysLeft(deadline);
+var col = d<0 ? RED : d<=3 ? PEACH : LAV;
+var lbl = d<0 ? “En retard !” : d===0 ? “Auj. !” : d===1 ? “Demain” : d+” jours”;
+return (
+<span style={{fontFamily:”‘Press Start 2P’”,fontSize:“6px”,color:col,
+border:“1px solid “+col,padding:“2px 5px”,marginLeft:6,whiteSpace:“nowrap”}}>
+📅 {lbl}
+</span>
+);
+}
+
+function LevelUpToast({events, onClose}) {
+useEffect(function(){ var t=setTimeout(onClose,4000); return function(){clearTimeout(t);}; }, []);
+return (
+<div style={{position:“fixed”,top:20,left:“50%”,transform:“translateX(-50%)”,
+background:PANEL2,border:“2px solid “+ACCENT,boxShadow:“0 0 40px “+ACCENT+“55”,
 padding:“16px 28px”,zIndex:9999,textAlign:“center”,minWidth:240}}>
-<div style={{fontFamily:”‘Press Start 2P’”,fontSize:10,color:T.accent,marginBottom:8}}>✨ LEVEL UP !</div>
-{events.map((e,i)=><div key={i} style={{fontFamily:“VT323”,fontSize:22,color:T.text}}>{e.icon} {e.label} → Niv.{e.level}</div>)}
-
-  </div>;
+<div style={{fontFamily:”‘Press Start 2P’”,fontSize:“10px”,color:ACCENT,marginBottom:8}}>✨ LEVEL UP !</div>
+{events.map(function(e,i){
+return <div key={i} style={{fontFamily:“VT323”,fontSize:“22px”,color:TEXT}}>{e.icon} {e.label} → Niv.{e.level}</div>;
+})}
+</div>
+);
 }
 
-/* ═══ TASK CARD ═══ */
-function TaskCard({task,cfg,onAction,onDel,isObj}){
-const [tl,setTl]=useState(null);
-useEffect(()=>{
-if(!task.at||!task.timer)return;
-const end=task.at+task.timer*60000;
-const tick=()=>setTl(Math.max(0,end-Date.now()));
-tick();const id=setInterval(tick,500);return()=>clearInterval(id);
-},[task.at,task.timer]);
+function TaskCard({task, cfg, onAction, onDel}) {
+var [tl, setTl] = useState(null);
 
-const fmt=ms=>{const s=Math.floor(ms/1000),m=Math.floor(s/60);return`${m}:${(s%60).toString().padStart(2,"0")}`};
-const inTime=tl!==null&&tl>0;
-const stat=cfg.find(s=>s.key===task.sk);
-const sub=stat?.subs.find(x=>x.key===task.sub);
-const xpB=XP_BASE[task.diff];
-const bColor=task.done?T.border:inTime?T.green+“66”:stat?.color+“55”;
+useEffect(function(){
+if(!task.at || !task.timer) return;
+var end = task.at + task.timer*60000;
+function tick(){ setTl(Math.max(0, end-Date.now())); }
+tick();
+var id = setInterval(tick, 500);
+return function(){ clearInterval(id); };
+}, [task.at, task.timer]);
 
-return <div style={{border:`1px solid ${bColor}`,background:task.done?”#120810”:T.panel,
-padding:“12px 14px”,marginBottom:9,opacity:task.done?.5:1,position:“relative”,overflow:“hidden”,transition:“all .3s”}}>
-{!task.done&&<div style={{position:“absolute”,left:0,top:0,bottom:0,width:3,
-background:inTime?T.green:stat?.color,boxShadow:`0 0 8px ${inTime?T.green:stat?.color}`}}/>}
-<div style={{display:“flex”,gap:10,alignItems:“flex-start”}}>
-<button onClick={()=>!task.done&&onAction(task.id,“complete”)}
+function fmt(ms){ var s=Math.floor(ms/1000),m=Math.floor(s/60); return m+”:”+(s%60).toString().padStart(2,“0”); }
+var inTime = tl!==null && tl>0;
+var stat = cfg.find(function(s){return s.key===task.sk;});
+var sub = stat ? stat.subs.find(function(x){return x.key===task.sub;}) : null;
+var xpBase = getXpBase(task.diff);
+var sColor = stat ? stat.color : ACCENT;
+
+return (
+<div style={{border:“1px solid “+(task.done?BORDER:inTime?GREEN+“66”:sColor+“55”),
+background:task.done?”#120810”:PANEL, padding:“12px 14px”, marginBottom:9,
+opacity:task.done?0.5:1, position:“relative”, overflow:“hidden”}}>
+{!task.done &&
+<div style={{position:“absolute”,left:0,top:0,bottom:0,width:3,
+background:inTime?GREEN:sColor, boxShadow:“0 0 8px “+(inTime?GREEN:sColor)}}/>}
+<div style={{display:“flex”, gap:10, alignItems:“flex-start”}}>
+<button onClick={function(){!task.done && onAction(task.id,“complete”);}}
 style={{width:22,height:22,flexShrink:0,marginTop:2,
-border:`2px solid ${task.done?T.border:stat?.color}`,
-background:task.done?T.border:“transparent”,cursor:task.done?“default”:“pointer”,
-color:T.text,fontSize:12,display:“flex”,alignItems:“center”,justifyContent:“center”}}>
-{task.done?“✓”:””}
+border:“2px solid “+(task.done?BORDER:sColor),
+background:task.done?BORDER:“transparent”,
+cursor:task.done?“default”:“pointer”,
+color:TEXT,fontSize:“12px”,display:“flex”,alignItems:“center”,justifyContent:“center”}}>
+{task.done ? “✓” : “”}
 </button>
 <div style={{flex:1,minWidth:0}}>
-<div style={{fontFamily:“VT323”,fontSize:20,color:task.done?T.muted:T.text,
-textDecoration:task.done?“line-through”:“none”,marginBottom:5,display:“flex”,alignItems:“center”,flexWrap:“wrap”,gap:4}}>
+<div style={{fontFamily:“VT323”,fontSize:“20px”,color:task.done?MUTED:TEXT,
+textDecoration:task.done?“line-through”:“none”,marginBottom:5,display:“flex”,flexWrap:“wrap”,alignItems:“center”,gap:4}}>
 {task.title}
-{task.deadline&&!task.done&&<Badge deadline={task.deadline}/>}
+{task.deadline && !task.done && <DeadlineBadge deadline={task.deadline}/>}
 </div>
 <div style={{display:“flex”,flexWrap:“wrap”,gap:6,alignItems:“center”,marginBottom:task.timer&&!task.done?8:0}}>
-{stat&&<span style={{fontFamily:”‘Press Start 2P’”,fontSize:6,color:stat.color}}>{stat.icon} {stat.label}</span>}
-{sub&&<span style={{fontFamily:”‘Press Start 2P’”,fontSize:6,color:T.muted}}>› {sub.icon} {sub.label}</span>}
-<span style={{fontFamily:”‘Press Start 2P’”,fontSize:6,color:T.lav}}>+{xpB} XP{task.at&&inTime?` ⚡+${XP_BONUS}`:””}</span>
-</div>
-{task.timer&&!task.done&&(
-task.at?
-<div style={{display:“inline-flex”,alignItems:“center”,gap:6,padding:“4px 10px”,
-border:`1px solid ${inTime?T.green+"44":T.red+"44"}`,background:inTime?T.green+“11”:T.red+“11”}}>
-<span style={{fontFamily:”‘Press Start 2P’”,fontSize:8,color:inTime?T.green:T.red}}>
-{tl!==null?(inTime?`⏱ ${fmt(tl)}`:“⌛ Temps écoulé”):”…”}
+{stat && <span style={{fontFamily:”‘Press Start 2P’”,fontSize:“6px”,color:sColor}}>{stat.icon} {stat.label}</span>}
+{sub && <span style={{fontFamily:”‘Press Start 2P’”,fontSize:“6px”,color:MUTED}}>› {sub.icon} {sub.label}</span>}
+<span style={{fontFamily:”‘Press Start 2P’”,fontSize:“6px”,color:LAV}}>
++{xpBase} XP{task.at&&inTime?” ⚡+”+XP_BONUS:””}
 </span>
-</div>:
-<button onClick={()=>onAction(task.id,“start”)} style={{fontFamily:”‘Press Start 2P’”,fontSize:6,
-background:T.lav+“22”,border:`1px solid ${T.lav}`,color:T.lav,padding:“5px 10px”,cursor:“pointer”}}>
+</div>
+{task.timer && !task.done && (
+task.at ?
+<div style={{display:“inline-flex”,alignItems:“center”,gap:6,padding:“4px 10px”,
+border:“1px solid “+(inTime?GREEN+“44”:RED+“44”),background:inTime?GREEN+“11”:RED+“11”}}>
+<span style={{fontFamily:”‘Press Start 2P’”,fontSize:“8px”,color:inTime?GREEN:RED}}>
+{tl!==null ? (inTime ? “⏱ “+fmt(tl) : “⌛ Temps écoulé”) : “…”}
+</span>
+</div> :
+<button onClick={function(){onAction(task.id,“start”);}}
+style={{fontFamily:”‘Press Start 2P’”,fontSize:“6px”,
+background:LAV+“22”,border:“1px solid “+LAV,color:LAV,padding:“5px 10px”,cursor:“pointer”}}>
 ▶ Démarrer {task.timer}min (+{XP_BONUS} XP bonus)
 </button>
 )}
 </div>
-<button onClick={()=>onDel(task.id)} style={{background:“none”,border:“none”,color:T.muted,cursor:“pointer”,fontSize:14,flexShrink:0}}>✕</button>
+<button onClick={function(){onDel(task.id);}}
+style={{background:“none”,border:“none”,color:MUTED,cursor:“pointer”,fontSize:“14px”,flexShrink:0}}>✕</button>
 </div>
-
-  </div>;
+</div>
+);
 }
 
-/* ═══ FORMULAIRE AJOUT QUÊTE ═══ */
-function AddTaskForm({cfg,onAdd,onClose,isObj}){
-const[f,setF]=useState({title:””,sk:cfg[0]?.key||””,sub:””,diff:“easy”,timer:””,deadline:””});
-const subs=cfg.find(s=>s.key===f.sk)?.subs||[];
-return <div style={{border:`1px solid ${T.glow}`,background:T.panel2,padding:16,marginTop:12}}>
-<div style={{fontFamily:”‘Press Start 2P’”,fontSize:7,color:T.accent,marginBottom:14}}>✦ {isObj?“NOUVEL OBJECTIF”:“NOUVELLE QUÊTE”}</div>
-<input placeholder=“Titre…” value={f.title} onChange={e=>setF(p=>({…p,title:e.target.value}))}
-onKeyDown={e=>e.key===“Enter”&&f.title.trim()&&onAdd(f)}
-style={{…inp,marginBottom:8}}/>
+function AddForm({cfg, onAdd, onClose}) {
+var firstSk = cfg.length>0 ? cfg[0].key : “”;
+var [f, setF] = useState({title:””,sk:firstSk,sub:””,diff:“easy”,timer:””,deadline:””});
+var currentSubs = (cfg.find(function(s){return s.key===f.sk;}) || {subs:[]}).subs;
+
+return (
+<div style={{border:“1px solid “+GLOW,background:PANEL2,padding:16,marginTop:12}}>
+<div style={{fontFamily:”‘Press Start 2P’”,fontSize:“7px”,color:ACCENT,marginBottom:14}}>✦ NOUVELLE QUÊTE</div>
+<input placeholder=“Titre de la quête…” value={f.title}
+onChange={function(e){setF(function(p){return Object.assign({},p,{title:e.target.value});});}}
+onKeyDown={function(e){if(e.key===“Enter”&&f.title.trim())onAdd(f);}}
+style={Object.assign({},inpStyle,{marginBottom:8})}/>
 <div style={{display:“grid”,gridTemplateColumns:“1fr 1fr”,gap:8,marginBottom:8}}>
-<select value={f.sk} onChange={e=>{setF(p=>({…p,sk:e.target.value,sub:””}))}} style={inp}>
-{cfg.map(s=><option key={s.key} value={s.key}>{s.icon} {s.label}</option>)}
+<select value={f.sk} onChange={function(e){setF(function(p){return Object.assign({},p,{sk:e.target.value,sub:””});});}} style={inpStyle}>
+{cfg.map(function(s){return <option key={s.key} value={s.key}>{s.icon} {s.label}</option>;})}
 </select>
-<select value={f.sub} onChange={e=>setF(p=>({…p,sub:e.target.value}))} style={inp}>
+<select value={f.sub} onChange={function(e){setF(function(p){return Object.assign({},p,{sub:e.target.value});});}} style={inpStyle}>
 <option value="">— Sous-comp.</option>
-{subs.map(x=><option key={x.key} value={x.key}>{x.icon} {x.label}</option>)}
+{currentSubs.map(function(x){return <option key={x.key} value={x.key}>{x.icon} {x.label}</option>;})}
 </select>
 </div>
 <div style={{display:“grid”,gridTemplateColumns:“1fr 1fr 1fr”,gap:8,marginBottom:12}}>
-<select value={f.diff} onChange={e=>setF(p=>({…p,diff:e.target.value}))} style={inp}>
+<select value={f.diff} onChange={function(e){setF(function(p){return Object.assign({},p,{diff:e.target.value});});}} style={inpStyle}>
 <option value="easy">+15 — Facile</option>
 <option value="medium">+30 — Moyen</option>
 <option value="hard">+50 — Difficile</option>
 </select>
-<input type=“number” placeholder=“⏱ min” value={f.timer}
-onChange={e=>setF(p=>({…p,timer:e.target.value}))} style={inp}/>
+<input type=“number” placeholder={“⏱ min (+”+XP_BONUS+” XP)”} value={f.timer}
+onChange={function(e){setF(function(p){return Object.assign({},p,{timer:e.target.value});});}}
+style={inpStyle}/>
 <input type=“date” value={f.deadline}
-onChange={e=>setF(p=>({…p,deadline:e.target.value}))} style={{…inp,colorScheme:“dark”}}/>
+onChange={function(e){setF(function(p){return Object.assign({},p,{deadline:e.target.value});});}}
+style={Object.assign({},inpStyle,{colorScheme:“dark”})}/>
 </div>
 <div style={{display:“flex”,gap:8}}>
-<button onClick={()=>f.title.trim()&&onAdd(f)} style={{flex:1,background:T.accent,border:“none”,
-color:T.bg,padding:“10px”,fontFamily:”‘Press Start 2P’”,fontSize:7,cursor:“pointer”}}>AJOUTER ✦</button>
-<button onClick={onClose} style={{background:“none”,border:`1px solid ${T.border}`,
-color:T.muted,padding:“10px 14px”,fontFamily:”‘Press Start 2P’”,fontSize:7,cursor:“pointer”}}>✕</button>
+<button onClick={function(){if(f.title.trim())onAdd(f);}} style={btnPink}>AJOUTER ✦</button>
+<button onClick={onClose} style={{background:“none”,border:“1px solid “+BORDER,
+color:MUTED,padding:“11px 14px”,fontFamily:”‘Press Start 2P’”,fontSize:“7px”,cursor:“pointer”}}>✕</button>
 </div>
-
-  </div>;
+</div>
+);
 }
 
-/* ═══ ONGLET PERSONNALISATION ═══ */
-function ConfigTab({cfg,onSave}){
-const[c,setC]=useState(()=>JSON.parse(JSON.stringify(cfg)));
-const[openStat,setOpenStat]=useState(null);
-const[editingIcon,setEditingIcon]=useState(null); // {type:‘stat’|‘sub’, sk, subKey}
+// ═══ ONGLET QUÊTES ═══
+function QuetesTab({tasks, cfg, onAction, onDel, onAdd}) {
+var [showAdd, setShowAdd] = useState(false);
+var quetes = tasks.filter(function(t){return !t.deadline;});
+var nbDone = quetes.filter(function(t){return t.done;}).length;
 
-const updateStat=(sk,field,val)=>setC(p=>p.map(s=>s.key===sk?{…s,[field]:val}:s));
-const addStat=()=>{
-const key=“s”+uid();
-setC(p=>[…p,{key,label:“Nouvelle stat”,icon:“⭐”,color:COLORS[0],subs:[]}]);
-};
-const removeStat=sk=>setC(p=>p.filter(s=>s.key!==sk));
-const addSub=sk=>{
-const key=“ss”+uid();
-setC(p=>p.map(s=>s.key===sk?{…s,subs:[…s.subs,{key,label:“Sous-comp.”,icon:“✦”}]}:s));
-};
-const updateSub=(sk,subKey,field,val)=>setC(p=>p.map(s=>s.key===sk?{…s,subs:s.subs.map(x=>x.key===subKey?{…x,[field]:val}:x)}:s));
-const removeSub=(sk,subKey)=>setC(p=>p.map(s=>s.key===sk?{…s,subs:s.subs.filter(x=>x.key!==subKey)}:s));
-
-return <div>
-<div style={{fontFamily:”‘Press Start 2P’”,fontSize:7,color:T.accent,marginBottom:16}}>PERSONNALISATION</div>
-<div style={{fontFamily:“VT323”,fontSize:17,color:T.muted,marginBottom:16}}>
-Modifie tes stats, sous-stats, icônes et couleurs librement. Clique sur une stat pour la déplier.
-</div>
-
-```
-{c.map(s=><div key={s.key} style={{marginBottom:10,border:`1px solid ${s.color}44`,background:T.panel}}>
-  {/* Header stat */}
-  <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 12px",
-    background:openStat===s.key?T.panel2:T.panel,cursor:"pointer"}}
-    onClick={()=>setOpenStat(p=>p===s.key?null:s.key)}>
-    {/* Icon picker */}
-    <div onClick={e=>{e.stopPropagation();setEditingIcon({type:"stat",sk:s.key})}}
-      style={{width:32,height:32,display:"flex",alignItems:"center",justifyContent:"center",
-        fontSize:20,border:`1px solid ${T.border}`,background:T.bg,cursor:"pointer",flexShrink:0}}
-      title="Changer l'icône">{s.icon}</div>
-    <input value={s.label} onClick={e=>e.stopPropagation()}
-      onChange={e=>updateStat(s.key,"label",e.target.value)}
-      style={{...inp,flex:1,fontSize:18}}/>
-    {/* Color picker */}
-    <div onClick={e=>e.stopPropagation()} style={{display:"flex",flexWrap:"wrap",gap:3,maxWidth:110}}>
-      {COLORS.map(col=><div key={col} onClick={()=>updateStat(s.key,"color",col)}
-        style={{width:14,height:14,background:col,border:s.color===col?`2px solid #fff`:"1px solid transparent",
-          cursor:"pointer",borderRadius:2}}/>)}
-    </div>
-    <button onClick={e=>{e.stopPropagation();removeStat(s.key)}}
-      style={{background:"none",border:"none",color:T.red,cursor:"pointer",fontSize:16,flexShrink:0}}>✕</button>
-    <span style={{color:T.muted,fontSize:12,flexShrink:0}}>{openStat===s.key?"▲":"▼"}</span>
-  </div>
-
-  {/* Sous-stats */}
-  {openStat===s.key&&<div style={{padding:"8px 12px 12px",borderTop:`1px solid ${T.border}`}}>
-    <div style={{fontFamily:"'Press Start 2P'",fontSize:6,color:T.muted,marginBottom:10}}>SOUS-COMPÉTENCES</div>
-    {s.subs.map(x=><div key={x.key} style={{display:"flex",gap:8,alignItems:"center",marginBottom:7}}>
-      <div onClick={()=>setEditingIcon({type:"sub",sk:s.key,subKey:x.key})}
-        style={{width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",
-          fontSize:17,border:`1px solid ${T.border}`,background:T.bg,cursor:"pointer",flexShrink:0}}>{x.icon}</div>
-      <input value={x.label} onChange={e=>updateSub(s.key,x.key,"label",e.target.value)}
-        style={{...inp,flex:1,fontSize:17}}/>
-      <button onClick={()=>removeSub(s.key,x.key)}
-        style={{background:"none",border:"none",color:T.red,cursor:"pointer",fontSize:14,flexShrink:0}}>✕</button>
-    </div>)}
-    <button onClick={()=>addSub(s.key)} style={{fontFamily:"'Press Start 2P'",fontSize:6,
-      background:"transparent",border:`1px dashed ${T.glow}`,color:T.lav,
-      padding:"6px 12px",cursor:"pointer",marginTop:4,width:"100%"}}>+ Ajouter sous-compétence</button>
-  </div>}
-</div>)}
-
-<button onClick={addStat} style={{width:"100%",border:`1px dashed ${T.glow}`,background:"transparent",
-  color:T.accent,padding:"12px",cursor:"pointer",fontFamily:"'Press Start 2P'",fontSize:7,marginBottom:14}}>
-  + AJOUTER UNE STAT
-</button>
-
-<button onClick={()=>onSave(c)} style={{width:"100%",background:T.accent,border:"none",
-  color:T.bg,padding:"12px",fontFamily:"'Press Start 2P'",fontSize:8,cursor:"pointer"}}>
-  SAUVEGARDER ✦
-</button>
-
-{/* Modal icon picker */}
-{editingIcon&&<div style={{position:"fixed",inset:0,background:"#000000aa",zIndex:999,
-  display:"flex",alignItems:"center",justifyContent:"center"}}
-  onClick={()=>setEditingIcon(null)}>
-  <div style={{background:T.panel2,border:`1px solid ${T.glow}`,padding:20,maxWidth:300}}
-    onClick={e=>e.stopPropagation()}>
-    <div style={{fontFamily:"'Press Start 2P'",fontSize:7,color:T.accent,marginBottom:12}}>CHOISIR UNE ICÔNE</div>
-    <input placeholder="Colle ou tape un emoji..." autoFocus
-      style={{...inp,marginBottom:12,fontSize:24,textAlign:"center"}}
-      onInput={e=>{
-        const v=e.target.value;
-        if(!v)return;
-        if(editingIcon.type==="stat") updateStat(editingIcon.sk,"icon",v);
-        else updateSub(editingIcon.sk,editingIcon.subKey,"icon",v);
-        setEditingIcon(null);
-      }}/>
-    <div style={{display:"grid",gridTemplateColumns:"repeat(8,1fr)",gap:6}}>
-      {["📚","🎓","🧠","✏️","🍳","🥗","🍰","☕","💪","🏃","🧘","⚽","💌","👯","🏠","❤️","🎀","🎨","🎵","✍️","🌸","🌙","🛁","😴","⭐","🦋","💎","🔥","🌈","🎯","🧩","🎮"].map(em=>
-        <div key={em} onClick={()=>{
-          if(editingIcon.type==="stat") updateStat(editingIcon.sk,"icon",em);
-          else updateSub(editingIcon.sk,editingIcon.subKey,"icon",em);
-          setEditingIcon(null);
-        }} style={{fontSize:22,cursor:"pointer",textAlign:"center",padding:4,
-          borderRadius:4,background:T.panel,border:`1px solid ${T.border}`}}>{em}</div>
-      )}
-    </div>
-  </div>
-</div>}
-```
-
-  </div>;
-}
-
-/* ═══ ONGLET STATS ═══ */
-function StatsTab({cfg,stats,subStats}){
-const[open,setOpen]=useState({});
-const total=cfg.reduce((a,s)=>a+mkXp(stats[s.key]||0).level,0);
-return <div>
-<div style={{fontFamily:”‘Press Start 2P’”,fontSize:7,color:T.accent,marginBottom:16}}>FICHE DE PERSONNAGE</div>
-<div style={{background:`linear-gradient(135deg,${T.panel},${T.panel2})`,border:`1px solid ${T.accent}33`,
-padding:16,marginBottom:20,display:“flex”,gap:14,alignItems:“center”,boxShadow:`0 0 24px ${T.accent}22`}}>
-<div style={{fontSize:48}}>🧸</div>
+return (
 <div>
-<div style={{fontFamily:“VT323”,fontSize:26,color:T.text,marginBottom:4}}>Niveau total</div>
-<div style={{fontFamily:“VT323”,fontSize:48,color:T.gold,lineHeight:1}}>{total}</div>
+<div style={{display:“flex”,justifyContent:“space-between”,alignItems:“center”,marginBottom:6}}>
+<span style={{fontFamily:”‘Press Start 2P’”,fontSize:“7px”,color:ACCENT}}>QUÊTES DU JOUR</span>
+<span style={{fontFamily:“VT323”,fontSize:“18px”,color:MUTED}}>{nbDone}/{quetes.length}</span>
 </div>
-</div>
-{cfg.map(s=>{
-const{level,cur,max}=mkXp(stats[s.key]||0);
-return <div key={s.key} style={{marginBottom:10}}>
-<div onClick={()=>setOpen(p=>({…p,[s.key]:!p[s.key]}))}
-style={{background:open[s.key]?T.panel2:T.panel,border:`1px solid ${open[s.key]?s.color+"77":s.color+"33"}`,
-padding:“11px 14px”,cursor:“pointer”,boxShadow:open[s.key]?`0 0 14px ${s.color}22`:“none”}}>
-<div style={{display:“flex”,justifyContent:“space-between”,alignItems:“center”,marginBottom:7}}>
-<span style={{fontFamily:“VT323”,fontSize:22,color:s.color}}>{s.icon}  {s.label}</span>
-<div style={{display:“flex”,alignItems:“center”,gap:10}}>
-<span style={{fontFamily:”‘Press Start 2P’”,fontSize:8,color:s.color}}>Niv.{level}</span>
-<span style={{color:T.muted,fontSize:12}}>{open[s.key]?“▲”:“▼”}</span>
-</div>
-</div>
-<ProgressBar cur={cur} max={max} color={s.color}/>
-<div style={{fontFamily:”‘Press Start 2P’”,fontSize:6,color:T.muted,marginTop:4,textAlign:“right”}}>{cur}/{max} XP</div>
-</div>
-{open[s.key]&&<div style={{marginLeft:16,borderLeft:`2px solid ${s.color}44`,paddingLeft:12,paddingTop:6}}>
-{s.subs.map(x=>{
-const xi=mkXp(subStats[x.key]||0);
-return <div key={x.key} style={{background:T.panel2,border:`1px solid ${T.border}33`,
-padding:“9px 12px”,marginBottom:6}}>
-<div style={{display:“flex”,justifyContent:“space-between”,marginBottom:5}}>
-<span style={{fontFamily:“VT323”,fontSize:18,color:T.text}}>{x.icon} {x.label}</span>
-<span style={{fontFamily:”‘Press Start 2P’”,fontSize:7,color:T.muted}}>Niv.{xi.level}</span>
-</div>
-<ProgressBar cur={xi.cur} max={xi.max} color={s.color} h={7}/>
-<div style={{fontFamily:”‘Press Start 2P’”,fontSize:6,color:T.muted,marginTop:3,textAlign:“right”}}>{xi.cur}/{xi.max} XP</div>
-</div>;
-})}
-</div>}
-</div>;
-})}
-
-  </div>;
-}
-
-/* ═══ ONGLET OBJECTIFS ═══ */
-function ObjectifsTab({tasks,cfg,onAction,onDel,onAdd}){
-const[showAdd,setShowAdd]=useState(false);
-const objs=tasks.filter(t=>t.deadline);
-const sorted=[…objs].sort((a,b)=>new Date(a.deadline)-new Date(b.deadline));
-const upcoming=sorted.filter(t=>!t.done);
-const done=sorted.filter(t=>t.done);
-
-return <div>
-<div style={{fontFamily:”‘Press Start 2P’”,fontSize:7,color:T.accent,marginBottom:6}}>OBJECTIFS & DEADLINES</div>
-<div style={{fontFamily:“VT323”,fontSize:17,color:T.muted,marginBottom:16}}>
-Les quêtes avec une date limite apparaissent ici, triées par urgence.
-</div>
+<Bar cur={nbDone} max={Math.max(quetes.length,1)} color={ACCENT} h={8}/>
+<div style={{marginBottom:16}}/>
 
 ```
-{upcoming.length===0&&<div style={{textAlign:"center",padding:36,color:T.muted,fontFamily:"VT323",fontSize:20}}>
-  Aucun objectif en cours 🌸<br/>Ajoute une quête avec une deadline !
-</div>}
+  {quetes.length===0 &&
+    <div style={{textAlign:"center",padding:48,color:MUTED,fontFamily:"VT323",fontSize:"20px"}}>
+      Aucune quête active 🌸<br/>Ajoute ta première mission !
+    </div>}
 
-{upcoming.map(t=><TaskCard key={t.id} task={t} cfg={cfg} onAction={onAction} onDel={onDel} isObj/>)}
+  {quetes.map(function(t){return <TaskCard key={t.id} task={t} cfg={cfg} onAction={onAction} onDel={onDel}/>;})}
 
-{done.length>0&&<>
-  <div style={{fontFamily:"'Press Start 2P'",fontSize:6,color:T.muted,margin:"16px 0 10px"}}>ACCOMPLIS ✓</div>
-  {done.map(t=><TaskCard key={t.id} task={t} cfg={cfg} onAction={onAction} onDel={onDel} isObj/>)}
-</>}
-
-{showAdd
-  ?<AddTaskForm cfg={cfg} isObj onAdd={f=>{onAdd({...f,deadline:f.deadline||new Date(Date.now()+864e5).toISOString().split("T")[0]});setShowAdd(false);}} onClose={()=>setShowAdd(false)}/>
-  :<button onClick={()=>setShowAdd(true)} style={{width:"100%",border:`1px dashed ${T.glow}`,background:"transparent",
-    color:T.accent,padding:"13px",cursor:"pointer",fontFamily:"'Press Start 2P'",fontSize:7,marginTop:12}}>
-    ✦ NOUVEL OBJECTIF
-  </button>
-}
-```
-
-  </div>;
-}
-
-/* ═══ ONGLET JOURNAL ═══ */
-function JournalTab({done,cfg}){
-return <div>
-<div style={{fontFamily:”‘Press Start 2P’”,fontSize:7,color:T.accent,marginBottom:16}}>JOURNAL D’AVENTURE</div>
-{done.length===0
-?<div style={{textAlign:“center”,padding:48,color:T.muted,fontFamily:“VT323”,fontSize:20}}>
-Aucune quête accomplie.<br/>C’est ici que commence ta légende 🌸
-</div>
-:[…done].reverse().map((t,i)=>{
-const s=cfg.find(x=>x.key===t.sk);
-const sub=s?.subs.find(x=>x.key===t.sub);
-const d=new Date(t.completedAt);
-return <div key={i} style={{border:`1px solid ${T.border}`,padding:“10px 14px”,marginBottom:8,
-background:T.panel,display:“flex”,justifyContent:“space-between”,alignItems:“center”}}>
-<div>
-<div style={{fontFamily:“VT323”,fontSize:19,color:T.muted,marginBottom:3}}>✓ {t.title}</div>
-<div style={{display:“flex”,gap:8,flexWrap:“wrap”,alignItems:“center”}}>
-{s&&<span style={{fontFamily:”‘Press Start 2P’”,fontSize:6,color:s.color}}>{s.icon} {s.label}</span>}
-{sub&&<span style={{fontFamily:”‘Press Start 2P’”,fontSize:6,color:T.muted}}>› {sub.icon} {sub.label}</span>}
-<span style={{fontFamily:”‘Press Start 2P’”,fontSize:6,color:T.lav}}>+{t.xp} XP{t.bonus?” ⚡”:””}</span>
-</div>
-</div>
-<div style={{fontFamily:“VT323”,fontSize:14,color:T.muted,textAlign:“right”,flexShrink:0,marginLeft:10}}>
-{d.toLocaleDateString(“fr-FR”)}<br/>
-<span style={{fontSize:12}}>{d.toLocaleTimeString(“fr-FR”,{hour:“2-digit”,minute:“2-digit”})}</span>
-</div>
-</div>;
-})
-}
-
-  </div>;
-}
-
-/* ═══ APP PRINCIPALE ═══ */
-const inp={background:T.panel2,border:`1px solid ${T.border}`,color:T.text,
-padding:“8px 10px”,fontFamily:“VT323”,fontSize:18,outline:“none”,width:“100%”};
-
-const mkXp=xp=>({level:Math.floor(xp/XP_MAX)+1,cur:xp%XP_MAX,max:XP_MAX});
-
-function App(){
-const[st,setSt]=useState(load);
-const[tab,setTab]=useState(“quetes”);
-const[showAdd,setShowAdd]=useState(false);
-const[toast,setToast]=useState(null);
-const[editName,setEditName]=useState(false);
-const[nameInput,setNameInput]=useState(””);
-const[motiv]=useState(()=>MOTIVS[Math.floor(Math.random()*MOTIVS.length)]);
-
-useEffect(()=>{save(st)},[st]);
-
-/* ── Actions quêtes ── */
-const handleTask=useCallback((id,type)=>{
-setSt(prev=>{
-const task=prev.tasks.find(t=>t.id===id);
-if(!task)return prev;
-
-```
-  if(type==="start"&&task.timer&&!task.at&&!task.done)
-    return{...prev,tasks:prev.tasks.map(t=>t.id===id?{...t,at:Date.now()}:t)};
-
-  if(type!=="complete"||task.done)return prev;
-
-  const xpB=XP_BASE[task.diff];
-  const inTime=task.at&&task.timer?task.at+task.timer*60000>Date.now():false;
-  const xpGain=xpB+(inTime?XP_BONUS:0);
-
-  const nStats={...prev.stats};
-  const nSubs={...prev.subStats};
-  const ups=[];
-
-  if(nStats[task.sk]!==undefined){
-    const old=nStats[task.sk]||0;
-    nStats[task.sk]=old+xpGain;
-    if(mkXp(nStats[task.sk]).level>mkXp(old).level){
-      const s=prev.cfg.find(x=>x.key===task.sk);
-      ups.push({icon:s?.icon,label:s?.label,level:mkXp(nStats[task.sk]).level});
-    }
-  }
-  if(task.sub&&nSubs[task.sub]!==undefined){
-    const old=nSubs[task.sub]||0;
-    nSubs[task.sub]=old+xpGain;
-    if(mkXp(nSubs[task.sub]).level>mkXp(old).level){
-      const sub=prev.cfg.flatMap(s=>s.subs).find(x=>x.key===task.sub);
-      ups.push({icon:sub?.icon,label:sub?.label,level:mkXp(nSubs[task.sub]).level});
-    }
-  }
-  if(ups.length>0)setToast(ups);
-
-  return{...prev,stats:nStats,subStats:nSubs,
-    tasks:prev.tasks.map(t=>t.id===id?{...t,done:true}:t),
-    done:[...prev.done,{...task,completedAt:Date.now(),xp:xpGain,bonus:inTime}]};
-});
-```
-
-},[]);
-
-const delTask=id=>setSt(p=>({…p,tasks:p.tasks.filter(t=>t.id!==id)}));
-
-const addTask=f=>{
-const timer=f.timer?parseInt(f.timer):null;
-const deadline=f.deadline||null;
-setSt(p=>({…p,tasks:[…p.tasks,{id:uid(),title:f.title,sk:f.sk,sub:f.sub||null,
-diff:f.diff,timer,deadline,done:false,at:null}]}));
-setShowAdd(false);
-};
-
-const saveCfg=newCfg=>{
-setSt(prev=>{
-const nStats={…prev.stats};
-const nSubs={…prev.subStats};
-newCfg.forEach(s=>{
-if(nStats[s.key]===undefined)nStats[s.key]=0;
-s.subs.forEach(x=>{if(nSubs[x.key]===undefined)nSubs[x.key]=0});
-});
-return{…prev,cfg:newCfg,stats:nStats,subStats:nSubs};
-});
-setTab(“quetes”);
-};
-
-const quetes=st.tasks.filter(t=>!t.deadline);
-const nbDone=quetes.filter(t=>t.done).length;
-const tabs=[[“quetes”,“⚔ Quêtes”],[“objectifs”,“📅 Objectifs”],[“stats”,“🌸 Stats”],[“journal”,“📜 Journal”],[“config”,“⚙ Config”]];
-
-return <div style={{background:T.bg,minHeight:“100vh”,color:T.text,paddingBottom:60}}>
-<style>{`@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}} @keyframes shimmer{0%,100%{opacity:1}50%{opacity:.6}} button{outline:none;cursor:pointer;transition:filter .15s} button:hover{filter:brightness(1.2)} input,select{background:${T.panel2};border:1px solid ${T.border};color:${T.text}; padding:8px 10px;font-family:VT323;font-size:18px;outline:none} input:focus,select:focus{border-color:${T.accent};box-shadow:0 0 8px ${T.accent}44} input::placeholder{color:${T.muted}} input[type=date]{color-scheme:dark}`}</style>
-
-```
-{toast&&<Toast events={toast} onClose={()=>setToast(null)}/>}
-
-{/* ── Header ── */}
-<div style={{background:`linear-gradient(135deg,${T.panel},${T.panel2})`,
-  borderBottom:`2px solid ${T.border}`,padding:"14px 18px"}}>
-  <div style={{fontFamily:"VT323",fontSize:16,color:T.lav,textAlign:"center",
-    marginBottom:12,animation:"shimmer 3s ease-in-out infinite"}}>✦ {motiv} ✦</div>
-  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>
-    <div style={{display:"flex",alignItems:"center",gap:12}}>
-      <div style={{fontSize:44,animation:"float 3s ease-in-out infinite"}}>🧸</div>
-      <div>
-        <div style={{fontFamily:"'Press Start 2P'",fontSize:6,color:T.accent,letterSpacing:2,marginBottom:5}}>✦ LIFE RPG ✦</div>
-        {editName
-          ?<div style={{display:"flex",gap:6}}>
-            <input value={nameInput} onChange={e=>setNameInput(e.target.value)}
-              onKeyDown={e=>{if(e.key==="Enter"){setSt(p=>({...p,playerName:nameInput||p.playerName}));setEditName(false)}}}
-              style={{fontSize:16,width:130,padding:"4px 8px"}} autoFocus/>
-            <button onClick={()=>{setSt(p=>({...p,playerName:nameInput||p.playerName}));setEditName(false)}}
-              style={{background:T.accent,border:"none",color:T.bg,padding:"4px 8px",fontFamily:"'Press Start 2P'",fontSize:7}}>OK</button>
-          </div>
-          :<div style={{fontFamily:"VT323",fontSize:26,color:T.text,cursor:"pointer"}}
-            onClick={()=>{setNameInput(st.playerName);setEditName(true)}}>
-            {st.playerName} <span style={{fontSize:14,color:T.muted}}>✎</span>
-          </div>
-        }
-      </div>
-    </div>
-    <div style={{textAlign:"right"}}>
-      <div style={{fontFamily:"'Press Start 2P'",fontSize:6,color:T.muted,marginBottom:3}}>NIV. TOTAL</div>
-      <div style={{fontFamily:"VT323",fontSize:44,color:T.gold,lineHeight:1}}>
-        {st.cfg.reduce((a,s)=>a+mkXp(st.stats[s.key]||0).level,0)}
-      </div>
-    </div>
-  </div>
-</div>
-
-{/* ── Tabs ── */}
-<div style={{display:"flex",borderBottom:`2px solid ${T.border}`,background:T.panel,overflowX:"auto"}}>
-  {tabs.map(([k,l])=><button key={k} onClick={()=>setTab(k)} style={{
-    flex:"0 0 auto",padding:"11px 10px",background:tab===k?T.panel2:"transparent",border:"none",
-    borderBottom:tab===k?`3px solid ${T.accent}`:"3px solid transparent",
-    color:tab===k?T.accent:T.muted,fontFamily:"'Press Start 2P'",fontSize:6,whiteSpace:"nowrap"}}>
-    {l}
-  </button>)}
-</div>
-
-<div style={{padding:"18px 16px",maxWidth:600,margin:"0 auto"}}>
-
-  {/* ── Quêtes ── */}
-  {tab==="quetes"&&<>
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-      <span style={{fontFamily:"'Press Start 2P'",fontSize:7,color:T.accent}}>QUÊTES DU JOUR</span>
-      <span style={{fontFamily:"VT323",fontSize:18,color:T.muted}}>{nbDone}/{quetes.length}</span>
-    </div>
-    <ProgressBar cur={nbDone} max={Math.max(quetes.length,1)} color={T.accent} h={8}/>
-    <div style={{marginBottom:16}}/>
-
-    {quetes.length===0&&<div style={{textAlign:"center",padding:48,color:T.muted,fontFamily:"VT323",fontSize:20}}>
-      Aucune quête active 🌸<br/>Ajoute ta première mission !</div>}
-    {quetes.map(t=><TaskCard key={t.id} task={t} cfg={st.cfg} onAction={handleTask} onDel={delTask}/>)}
-
-    {showAdd
-      ?<AddTaskForm cfg={st.cfg} onAdd={addTask} onClose={()=>setShowAdd(false)}/>
-      :<div style={{display:"flex",gap:8,marginTop:10}}>
-        <button onClick={()=>setShowAdd(true)} style={{flex:1,border:`1px dashed ${T.glow}`,
-          background:"transparent",color:T.accent,padding:"13px",fontFamily:"'Press Start 2P'",fontSize:7}}>
-          ✦ NOUVELLE QUÊTE
-        </button>
-        {nbDone>0&&<button onClick={()=>setSt(p=>({...p,tasks:p.tasks.map(t=>({...t,done:false,at:null}))}))}
-          style={{border:`1px solid ${T.border}`,background:"none",color:T.muted,
-            padding:"13px",fontFamily:"'Press Start 2P'",fontSize:7}}>↺</button>}
+  {showAdd
+    ? <AddForm cfg={cfg} onAdd={function(f){onAdd(f);setShowAdd(false);}} onClose={function(){setShowAdd(false);}}/>
+    : <div style={{display:"flex",gap:8,marginTop:10}}>
+        <button onClick={function(){setShowAdd(true);}} style={btnGhost}>✦ NOUVELLE QUÊTE</button>
+        {nbDone>0 &&
+          <button onClick={function(){onAction(null,"resetAll");}}
+            style={{border:"1px solid "+BORDER,background:"none",color:MUTED,
+              padding:"13px",fontFamily:"'Press Start 2P'",fontSize:"7px",cursor:"pointer"}}>↺</button>}
       </div>}
+</div>
+```
+
+);
+}
+
+// ═══ ONGLET OBJECTIFS ═══
+function ObjectifsTab({tasks, cfg, onAction, onDel, onAdd}) {
+var [showAdd, setShowAdd] = useState(false);
+var objs = tasks.filter(function(t){return !!t.deadline;});
+var sorted = objs.slice().sort(function(a,b){return new Date(a.deadline)-new Date(b.deadline);});
+var upcoming = sorted.filter(function(t){return !t.done;});
+var done = sorted.filter(function(t){return t.done;});
+
+return (
+<div>
+<div style={{fontFamily:”‘Press Start 2P’”,fontSize:“7px”,color:ACCENT,marginBottom:8}}>OBJECTIFS & DEADLINES</div>
+<div style={{fontFamily:“VT323”,fontSize:“17px”,color:MUTED,marginBottom:16}}>
+Quêtes avec date limite, triées par urgence.
+</div>
+
+```
+  {upcoming.length===0 &&
+    <div style={{textAlign:"center",padding:36,color:MUTED,fontFamily:"VT323",fontSize:"20px"}}>
+      Aucun objectif en cours 🌸<br/>Ajoute une quête avec une deadline !
+    </div>}
+
+  {upcoming.map(function(t){return <TaskCard key={t.id} task={t} cfg={cfg} onAction={onAction} onDel={onDel}/>;})}
+
+  {done.length>0 && <>
+    <div style={{fontFamily:"'Press Start 2P'",fontSize:"6px",color:MUTED,margin:"16px 0 10px"}}>ACCOMPLIS ✓</div>
+    {done.map(function(t){return <TaskCard key={t.id} task={t} cfg={cfg} onAction={onAction} onDel={onDel}/>;})}
   </>}
 
-  {tab==="objectifs"&&<ObjectifsTab tasks={st.tasks} cfg={st.cfg} onAction={handleTask} onDel={delTask}
-    onAdd={f=>setSt(p=>({...p,tasks:[...p.tasks,{id:uid(),title:f.title,sk:f.sk,
-      sub:f.sub||null,diff:f.diff,timer:f.timer?parseInt(f.timer):null,
-      deadline:f.deadline,done:false,at:null}]}))}/>}
-
-  {tab==="stats"&&<StatsTab cfg={st.cfg} stats={st.stats} subStats={st.subStats}/>}
-  {tab==="journal"&&<JournalTab done={st.done} cfg={st.cfg}/>}
-  {tab==="config"&&<ConfigTab cfg={st.cfg} onSave={saveCfg}/>}
+  {showAdd
+    ? <AddForm cfg={cfg} onAdd={function(f){onAdd(f);setShowAdd(false);}} onClose={function(){setShowAdd(false);}}/>
+    : <button onClick={function(){setShowAdd(true);}} style={Object.assign({},btnGhost,{marginTop:12})}>✦ NOUVEL OBJECTIF</button>}
 </div>
 ```
 
-  </div>;
+);
+}
+
+// ═══ ONGLET STATS ═══
+function StatsTab({cfg, stats, subStats}) {
+var [open, setOpen] = useState({});
+var total = cfg.reduce(function(a,s){return a+mkLvl(stats[s.key]||0).level;}, 0);
+
+return (
+<div>
+<div style={{fontFamily:”‘Press Start 2P’”,fontSize:“7px”,color:ACCENT,marginBottom:16}}>FICHE DE PERSONNAGE</div>
+<div style={{background:“linear-gradient(135deg,”+PANEL+”,”+PANEL2+”)”,border:“1px solid “+ACCENT+“33”,
+padding:16,marginBottom:20,display:“flex”,gap:14,alignItems:“center”,boxShadow:“0 0 24px “+ACCENT+“22”}}>
+<div style={{fontSize:“48px”}}>🧸</div>
+<div>
+<div style={{fontFamily:“VT323”,fontSize:“20px”,color:MUTED,marginBottom:2}}>Niveau total</div>
+<div style={{fontFamily:“VT323”,fontSize:“52px”,color:GOLD,lineHeight:1}}>{total}</div>
+</div>
+</div>
+
+```
+  {cfg.map(function(s){
+    var lvInfo = mkLvl(stats[s.key]||0);
+    var isOpen = !!open[s.key];
+    return (
+      <div key={s.key} style={{marginBottom:10}}>
+        <div onClick={function(){setOpen(function(p){var n=Object.assign({},p);n[s.key]=!n[s.key];return n;});}}
+          style={{background:isOpen?PANEL2:PANEL,border:"1px solid "+(isOpen?s.color+"77":s.color+"33"),
+            padding:"11px 14px",cursor:"pointer",boxShadow:isOpen?"0 0 14px "+s.color+"22":"none"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:7}}>
+            <span style={{fontFamily:"VT323",fontSize:"22px",color:s.color}}>{s.icon}  {s.label}</span>
+            <div style={{display:"flex",alignItems:"center",gap:10}}>
+              <span style={{fontFamily:"'Press Start 2P'",fontSize:"8px",color:s.color}}>Niv.{lvInfo.level}</span>
+              <span style={{color:MUTED,fontSize:"12px"}}>{isOpen?"▲":"▼"}</span>
+            </div>
+          </div>
+          <Bar cur={lvInfo.cur} max={lvInfo.max} color={s.color}/>
+          <div style={{fontFamily:"'Press Start 2P'",fontSize:"6px",color:MUTED,marginTop:4,textAlign:"right"}}>{lvInfo.cur}/{lvInfo.max} XP</div>
+        </div>
+        {isOpen &&
+          <div style={{marginLeft:16,borderLeft:"2px solid "+s.color+"44",paddingLeft:12,paddingTop:6}}>
+            {s.subs.map(function(x){
+              var xi = mkLvl(subStats[x.key]||0);
+              return (
+                <div key={x.key} style={{background:PANEL2,border:"1px solid "+BORDER+"33",padding:"9px 12px",marginBottom:6}}>
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}>
+                    <span style={{fontFamily:"VT323",fontSize:"18px",color:TEXT}}>{x.icon} {x.label}</span>
+                    <span style={{fontFamily:"'Press Start 2P'",fontSize:"7px",color:MUTED}}>Niv.{xi.level}</span>
+                  </div>
+                  <Bar cur={xi.cur} max={xi.max} color={s.color} h={7}/>
+                  <div style={{fontFamily:"'Press Start 2P'",fontSize:"6px",color:MUTED,marginTop:3,textAlign:"right"}}>{xi.cur}/{xi.max} XP</div>
+                </div>
+              );
+            })}
+          </div>}
+      </div>
+    );
+  })}
+</div>
+```
+
+);
+}
+
+// ═══ ONGLET JOURNAL ═══
+function JournalTab({done, cfg}) {
+return (
+<div>
+<div style={{fontFamily:”‘Press Start 2P’”,fontSize:“7px”,color:ACCENT,marginBottom:16}}>JOURNAL D’AVENTURE</div>
+{done.length===0
+? <div style={{textAlign:“center”,padding:48,color:MUTED,fontFamily:“VT323”,fontSize:“20px”}}>
+Aucune quête accomplie.<br/>C’est ici que commence ta légende 🌸
+</div>
+: done.slice().reverse().map(function(t,i){
+var s = cfg.find(function(x){return x.key===t.sk;});
+var sub = s ? s.subs.find(function(x){return x.key===t.sub;}) : null;
+var d = new Date(t.completedAt);
+return (
+<div key={i} style={{border:“1px solid “+BORDER,padding:“10px 14px”,marginBottom:8,
+background:PANEL,display:“flex”,justifyContent:“space-between”,alignItems:“center”}}>
+<div>
+<div style={{fontFamily:“VT323”,fontSize:“19px”,color:MUTED,marginBottom:3}}>✓ {t.title}</div>
+<div style={{display:“flex”,gap:8,flexWrap:“wrap”,alignItems:“center”}}>
+{s && <span style={{fontFamily:”‘Press Start 2P’”,fontSize:“6px”,color:s.color}}>{s.icon} {s.label}</span>}
+{sub && <span style={{fontFamily:”‘Press Start 2P’”,fontSize:“6px”,color:MUTED}}>› {sub.icon} {sub.label}</span>}
+<span style={{fontFamily:”‘Press Start 2P’”,fontSize:“6px”,color:LAV}}>+{t.xp} XP{t.bonus?” ⚡”:””}</span>
+</div>
+</div>
+<div style={{fontFamily:“VT323”,fontSize:“14px”,color:MUTED,textAlign:“right”,flexShrink:0,marginLeft:10}}>
+{d.toLocaleDateString(“fr-FR”)}<br/>
+<span style={{fontSize:“12px”}}>{d.toLocaleTimeString(“fr-FR”,{hour:“2-digit”,minute:“2-digit”})}</span>
+</div>
+</div>
+);
+})}
+</div>
+);
+}
+
+// ═══ ONGLET CONFIG ═══
+function ConfigTab({cfg, onSave}) {
+var [c, setC] = useState(function(){ return JSON.parse(JSON.stringify(cfg)); });
+var [openStat, setOpenStat] = useState(null);
+var [iconModal, setIconModal] = useState(null);
+
+function updateStat(sk, field, val) {
+setC(function(p){ return p.map(function(s){ return s.key===sk ? Object.assign({},s,{[field]:val}) : s; }); });
+}
+function addStat() {
+var key = “s”+uid();
+setC(function(p){ return p.concat([{key:key,label:“Nouvelle stat”,icon:“⭐”,color:COLORS[0],subs:[]}]); });
+}
+function removeStat(sk) { setC(function(p){ return p.filter(function(s){return s.key!==sk;}); }); }
+function addSub(sk) {
+var key = “ss”+uid();
+setC(function(p){ return p.map(function(s){ return s.key===sk ? Object.assign({},s,{subs:s.subs.concat([{key:key,label:“Sous-comp.”,icon:“✦”}])}) : s; }); });
+}
+function updateSub(sk, subKey, field, val) {
+setC(function(p){ return p.map(function(s){ return s.key!==sk ? s : Object.assign({},s,{subs:s.subs.map(function(x){ return x.key===subKey ? Object.assign({},x,{[field]:val}) : x; })}); }); });
+}
+function removeSub(sk, subKey) {
+setC(function(p){ return p.map(function(s){ return s.key!==sk ? s : Object.assign({},s,{subs:s.subs.filter(function(x){return x.key!==subKey;})}); }); });
+}
+
+return (
+<div>
+<div style={{fontFamily:”‘Press Start 2P’”,fontSize:“7px”,color:ACCENT,marginBottom:8}}>PERSONNALISATION</div>
+<div style={{fontFamily:“VT323”,fontSize:“17px”,color:MUTED,marginBottom:16}}>
+Modifie tes stats et sous-stats librement. Clique sur une stat pour la déplier.
+</div>
+
+```
+  {c.map(function(s){
+    var isOpen = openStat===s.key;
+    return (
+      <div key={s.key} style={{marginBottom:10,border:"1px solid "+s.color+"44",background:PANEL}}>
+        <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 12px",
+          background:isOpen?PANEL2:PANEL,cursor:"pointer"}}
+          onClick={function(){setOpenStat(function(p){return p===s.key?null:s.key;});}}>
+          <div onClick={function(e){e.stopPropagation();setIconModal({type:"stat",sk:s.key});}}
+            style={{width:32,height:32,display:"flex",alignItems:"center",justifyContent:"center",
+              fontSize:"20px",border:"1px solid "+BORDER,background:BG,cursor:"pointer",flexShrink:0}}>
+            {s.icon}
+          </div>
+          <input value={s.label} onClick={function(e){e.stopPropagation();}}
+            onChange={function(e){updateStat(s.key,"label",e.target.value);}}
+            style={Object.assign({},inpStyle,{flex:1,fontSize:"18px"})}/>
+          <div onClick={function(e){e.stopPropagation();}} style={{display:"flex",flexWrap:"wrap",gap:3,maxWidth:108}}>
+            {COLORS.map(function(col){
+              return <div key={col} onClick={function(){updateStat(s.key,"color",col);}}
+                style={{width:14,height:14,background:col,cursor:"pointer",borderRadius:2,
+                  border:s.color===col?"2px solid #fff":"1px solid transparent"}}/>;
+            })}
+          </div>
+          <button onClick={function(e){e.stopPropagation();removeStat(s.key);}}
+            style={{background:"none",border:"none",color:RED,cursor:"pointer",fontSize:"16px",flexShrink:0}}>✕</button>
+          <span style={{color:MUTED,fontSize:"12px",flexShrink:0}}>{isOpen?"▲":"▼"}</span>
+        </div>
+
+        {isOpen &&
+          <div style={{padding:"8px 12px 12px",borderTop:"1px solid "+BORDER}}>
+            <div style={{fontFamily:"'Press Start 2P'",fontSize:"6px",color:MUTED,marginBottom:10}}>SOUS-COMPÉTENCES</div>
+            {s.subs.map(function(x){
+              return (
+                <div key={x.key} style={{display:"flex",gap:8,alignItems:"center",marginBottom:7}}>
+                  <div onClick={function(){setIconModal({type:"sub",sk:s.key,subKey:x.key});}}
+                    style={{width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",
+                      fontSize:"17px",border:"1px solid "+BORDER,background:BG,cursor:"pointer",flexShrink:0}}>
+                    {x.icon}
+                  </div>
+                  <input value={x.label} onChange={function(e){updateSub(s.key,x.key,"label",e.target.value);}}
+                    style={Object.assign({},inpStyle,{flex:1,fontSize:"17px"})}/>
+                  <button onClick={function(){removeSub(s.key,x.key);}}
+                    style={{background:"none",border:"none",color:RED,cursor:"pointer",fontSize:"14px",flexShrink:0}}>✕</button>
+                </div>
+              );
+            })}
+            <button onClick={function(){addSub(s.key);}}
+              style={{fontFamily:"'Press Start 2P'",fontSize:"6px",background:"transparent",
+                border:"1px dashed "+GLOW,color:LAV,padding:"6px 12px",cursor:"pointer",marginTop:4,width:"100%"}}>
+              + Ajouter sous-compétence
+            </button>
+          </div>}
+      </div>
+    );
+  })}
+
+  <button onClick={addStat} style={Object.assign({},btnGhost,{marginBottom:12})}>+ AJOUTER UNE STAT</button>
+  <button onClick={function(){onSave(c);}} style={btnPink}>SAUVEGARDER ✦</button>
+
+  {iconModal &&
+    <div style={{position:"fixed",inset:0,background:"#000000aa",zIndex:999,
+      display:"flex",alignItems:"center",justifyContent:"center"}}
+      onClick={function(){setIconModal(null);}}>
+      <div style={{background:PANEL2,border:"1px solid "+GLOW,padding:20,maxWidth:300}}
+        onClick={function(e){e.stopPropagation();}}>
+        <div style={{fontFamily:"'Press Start 2P'",fontSize:"7px",color:ACCENT,marginBottom:12}}>CHOISIR UNE ICÔNE</div>
+        <input placeholder="Tape ou colle un emoji..." autoFocus
+          style={Object.assign({},inpStyle,{marginBottom:12,fontSize:"24px",textAlign:"center"})}
+          onChange={function(e){
+            var v=e.target.value;
+            if(!v)return;
+            if(iconModal.type==="stat") updateStat(iconModal.sk,"icon",v);
+            else updateSub(iconModal.sk,iconModal.subKey,"icon",v);
+            setIconModal(null);
+          }}/>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(8,1fr)",gap:6}}>
+          {EMOJIS.map(function(em){
+            return <div key={em} onClick={function(){
+              if(iconModal.type==="stat") updateStat(iconModal.sk,"icon",em);
+              else updateSub(iconModal.sk,iconModal.subKey,"icon",em);
+              setIconModal(null);
+            }} style={{fontSize:"22px",cursor:"pointer",textAlign:"center",padding:4,
+              background:PANEL,border:"1px solid "+BORDER,borderRadius:4}}>{em}</div>;
+          })}
+        </div>
+      </div>
+    </div>}
+</div>
+```
+
+);
+}
+
+// ═══ APP ═══
+function App() {
+var [st, setSt] = useState(loadState);
+var [tab, setTab] = useState(“quetes”);
+var [toast, setToast] = useState(null);
+var [editName, setEditName] = useState(false);
+var [nameInput, setNameInput] = useState(””);
+var motiv = useState(function(){ return MOTIVS[Math.floor(Math.random()*MOTIVS.length)]; })[0];
+
+useEffect(function(){ saveState(st); }, [st]);
+
+var handleTask = useCallback(function(id, type) {
+setSt(function(prev) {
+if(type===“resetAll”) {
+return Object.assign({},prev,{tasks:prev.tasks.map(function(t){return Object.assign({},t,{done:false,at:null});})});
+}
+var task = prev.tasks.find(function(t){return t.id===id;});
+if(!task) return prev;
+
+```
+  if(type==="start" && task.timer && !task.at && !task.done) {
+    return Object.assign({},prev,{tasks:prev.tasks.map(function(t){return t.id===id?Object.assign({},t,{at:Date.now()}):t;})});
+  }
+  if(type!=="complete" || task.done) return prev;
+
+  var xpBase = getXpBase(task.diff);
+  var inTime = task.at && task.timer ? task.at+task.timer*60000>Date.now() : false;
+  var xpGain = xpBase + (inTime ? XP_BONUS : 0);
+
+  var nStats = Object.assign({},prev.stats);
+  var nSubs = Object.assign({},prev.subStats);
+  var ups = [];
+
+  if(nStats[task.sk]!==undefined) {
+    var oldP = nStats[task.sk]||0;
+    nStats[task.sk] = oldP+xpGain;
+    if(mkLvl(nStats[task.sk]).level > mkLvl(oldP).level) {
+      var sc = prev.cfg.find(function(x){return x.key===task.sk;});
+      if(sc) ups.push({icon:sc.icon,label:sc.label,level:mkLvl(nStats[task.sk]).level});
+    }
+  }
+  if(task.sub && nSubs[task.sub]!==undefined) {
+    var oldS = nSubs[task.sub]||0;
+    nSubs[task.sub] = oldS+xpGain;
+    if(mkLvl(nSubs[task.sub]).level > mkLvl(oldS).level) {
+      var subFound = null;
+      prev.cfg.forEach(function(s){var f=s.subs.find(function(x){return x.key===task.sub;}); if(f)subFound=f;});
+      if(subFound) ups.push({icon:subFound.icon,label:subFound.label,level:mkLvl(nSubs[task.sub]).level});
+    }
+  }
+  if(ups.length>0) setToast(ups);
+
+  return Object.assign({},prev,{
+    stats:nStats, subStats:nSubs,
+    tasks:prev.tasks.map(function(t){return t.id===id?Object.assign({},t,{done:true}):t;}),
+    done:prev.done.concat([Object.assign({},task,{completedAt:Date.now(),xp:xpGain,bonus:inTime})]),
+  });
+});
+```
+
+}, []);
+
+var delTask = function(id){ setSt(function(p){return Object.assign({},p,{tasks:p.tasks.filter(function(t){return t.id!==id;})});}); };
+
+function addTask(f) {
+var timer = f.timer ? parseInt(f.timer) : null;
+setSt(function(p){
+return Object.assign({},p,{tasks:p.tasks.concat([{
+id:uid(),title:f.title,sk:f.sk,sub:f.sub||null,
+diff:f.diff,timer:timer,deadline:f.deadline||null,done:false,at:null
+}])});
+});
+}
+
+function saveCfg(newCfg) {
+setSt(function(prev) {
+var nStats = Object.assign({},prev.stats);
+var nSubs = Object.assign({},prev.subStats);
+newCfg.forEach(function(s){
+if(nStats[s.key]===undefined) nStats[s.key]=0;
+s.subs.forEach(function(x){if(nSubs[x.key]===undefined) nSubs[x.key]=0;});
+});
+return Object.assign({},prev,{cfg:newCfg,stats:nStats,subStats:nSubs});
+});
+setTab(“quetes”);
+}
+
+var total = st.cfg.reduce(function(a,s){return a+mkLvl(st.stats[s.key]||0).level;}, 0);
+var tabs = [[“quetes”,“⚔ Quêtes”],[“objectifs”,“📅 Objectifs”],[“stats”,“🌸 Stats”],[“journal”,“📜 Journal”],[“config”,“⚙ Config”]];
+
+return (
+<div style={{background:BG,minHeight:“100vh”,color:TEXT,paddingBottom:60}}>
+<style dangerouslySetInnerHTML={{__html:`@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}} @keyframes shimmer{0%,100%{opacity:1}50%{opacity:.6}} button{outline:none;border-radius:0;transition:filter .15s} button:hover{filter:brightness(1.2)}`}}/>
+
+```
+  {toast && <LevelUpToast events={toast} onClose={function(){setToast(null);}}/>}
+
+  {/* HEADER */}
+  <div style={{background:"linear-gradient(135deg,"+PANEL+","+PANEL2+")",
+    borderBottom:"2px solid "+BORDER,padding:"14px 18px"}}>
+    <div style={{fontFamily:"VT323",fontSize:"16px",color:LAV,textAlign:"center",
+      marginBottom:12,animation:"shimmer 3s ease-in-out infinite"}}>✦ {motiv} ✦</div>
+    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>
+      <div style={{display:"flex",alignItems:"center",gap:12}}>
+        <div style={{fontSize:"44px",animation:"float 3s ease-in-out infinite"}}>🧸</div>
+        <div>
+          <div style={{fontFamily:"'Press Start 2P'",fontSize:"6px",color:ACCENT,letterSpacing:2,marginBottom:5}}>✦ LIFE RPG ✦</div>
+          {editName
+            ? <div style={{display:"flex",gap:6}}>
+                <input value={nameInput}
+                  onChange={function(e){setNameInput(e.target.value);}}
+                  onKeyDown={function(e){if(e.key==="Enter"){setSt(function(p){return Object.assign({},p,{playerName:nameInput||p.playerName});});setEditName(false);}}}
+                  style={Object.assign({},inpStyle,{fontSize:"16px",width:130,padding:"4px 8px"})} autoFocus/>
+                <button onClick={function(){setSt(function(p){return Object.assign({},p,{playerName:nameInput||p.playerName});});setEditName(false);}}
+                  style={{background:ACCENT,border:"none",color:BG,padding:"4px 8px",fontFamily:"'Press Start 2P'",fontSize:"7px"}}>OK</button>
+              </div>
+            : <div style={{fontFamily:"VT323",fontSize:"26px",color:TEXT,cursor:"pointer"}}
+                onClick={function(){setNameInput(st.playerName);setEditName(true);}}>
+                {st.playerName} <span style={{fontSize:"14px",color:MUTED}}>✎</span>
+              </div>}
+        </div>
+      </div>
+      <div style={{textAlign:"right"}}>
+        <div style={{fontFamily:"'Press Start 2P'",fontSize:"6px",color:MUTED,marginBottom:3}}>NIV. TOTAL</div>
+        <div style={{fontFamily:"VT323",fontSize:"44px",color:GOLD,lineHeight:1}}>{total}</div>
+      </div>
+    </div>
+  </div>
+
+  {/* TABS */}
+  <div style={{display:"flex",borderBottom:"2px solid "+BORDER,background:PANEL,overflowX:"auto"}}>
+    {tabs.map(function(item){var k=item[0],l=item[1]; return (
+      <button key={k} onClick={function(){setTab(k);}} style={{
+        flex:"0 0 auto",padding:"11px 10px",
+        background:tab===k?PANEL2:"transparent",border:"none",
+        borderBottom:tab===k?"3px solid "+ACCENT:"3px solid transparent",
+        color:tab===k?ACCENT:MUTED,fontFamily:"'Press Start 2P'",fontSize:"6px",whiteSpace:"nowrap"}}>
+        {l}
+      </button>
+    );})}
+  </div>
+
+  <div style={{padding:"18px 16px",maxWidth:600,margin:"0 auto"}}>
+    {tab==="quetes"   && <QuetesTab tasks={st.tasks} cfg={st.cfg} onAction={handleTask} onDel={delTask} onAdd={addTask}/>}
+    {tab==="objectifs"&& <ObjectifsTab tasks={st.tasks} cfg={st.cfg} onAction={handleTask} onDel={delTask} onAdd={addTask}/>}
+    {tab==="stats"    && <StatsTab cfg={st.cfg} stats={st.stats} subStats={st.subStats}/>}
+    {tab==="journal"  && <JournalTab done={st.done} cfg={st.cfg}/>}
+    {tab==="config"   && <ConfigTab cfg={st.cfg} onSave={saveCfg}/>}
+  </div>
+</div>
+```
+
+);
 }
 
 ReactDOM.createRoot(document.getElementById(“root”)).render(<App/>);
