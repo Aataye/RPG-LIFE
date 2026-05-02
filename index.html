@@ -1,20 +1,43 @@
-import { useState, useEffect, useCallback } from “react”;
+<!DOCTYPE html>
 
-const fl = document.createElement(“link”);
-fl.rel = “stylesheet”;
-fl.href = “https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap”;
-document.head.appendChild(fl);
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>🌸 Mon RPG de Vie</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#150d1e;font-family:'VT323',monospace}
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-thumb{background:#7b2d5e;border-radius:4px}
+input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
+</style>
+</head>
+<body><div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useCallback,useRef}=React;
 
-const T = {
-bg:”#150d1e”,panel:”#1f1030”,panel2:”#2a1540”,border:”#4a2060”,bHover:”#7a3090”,
-text:”#ffe4f0”,muted:”#9b6aaa”,accent:”#ffaed6”,lav:”#c9a8ff”,peach:”#ffb3a0”,
-gold:”#ffd580”,green:”#98f5c0”,red:”#ff8fa0”,
+/* ═══════════════════════════════════════════
+THÈME — change les couleurs ici
+═══════════════════════════════════════════ */
+const T={
+bg:”#150d1e”, panel:”#1f1030”, panel2:”#2a1540”,
+border:”#4a2060”, glow:”#7a3090”,
+text:”#ffe4f0”, muted:”#9b6aaa”,
+accent:”#ffaed6”, lav:”#c9a8ff”, peach:”#ffb3a0”,
+gold:”#ffd580”, green:”#98f5c0”, red:”#ff8fa0”,
 };
+
 const COLORS=[”#ffaed6”,”#ffb3e6”,”#ffd6f0”,”#c9a8ff”,”#fda4af”,”#f9a8d4”,”#b8a2ff”,”#fbcfe8”,”#fecdd3”,”#f5d0fe”,”#99f6e4”,”#86efac”];
-const XP={easy:15,medium:30,hard:50};
-const BONUS=20, LVL=100;
+const XP_BASE={easy:15,medium:30,hard:50};
+const XP_BONUS=20, XP_MAX=100;
 const MOTIVS=[“Tu es capable de tout ! 💕”,“Chaque petit pas compte ✨”,“Tu brilles déjà 🌟”,“La régularité bat le talent 🎀”,“Fière de toi avant même de commencer 🌸”,“Ton futur toi te remercie 💖”,“T’es incroyable 🦋”,“Une quête à la fois, princesse ⭐”];
 
+/* ═══ INIT DATA ═══ */
 const DSTATS=[
 {key:“s1”,label:“Intelligence”,icon:“📚”,color:”#f9a8d4”,subs:[{key:“ss1”,label:“Cours”,icon:“🖊️”},{key:“ss2”,label:“Langues”,icon:“💬”},{key:“ss3”,label:“Culture G.”,icon:“🌍”}]},
 {key:“s2”,label:“Cuisine”,icon:“🍳”,color:”#fda4af”,subs:[{key:“ss4”,label:“Plats”,icon:“🍜”},{key:“ss5”,label:“Pâtisserie”,icon:“🍰”}]},
@@ -24,412 +47,570 @@ const DSTATS=[
 {key:“s6”,label:“Bien-être”,icon:“🌸”,color:”#fecdd3”,subs:[{key:“ss14”,label:“Méditation”,icon:“🌙”},{key:“ss15”,label:“Soins”,icon:“🛁”},{key:“ss16”,label:“Sommeil”,icon:“😴”}]},
 ];
 
-function lvl(xp){return{level:Math.floor(xp/LVL)+1,cur:xp%LVL,max:LVL};}
-function daysLeft(d){return Math.ceil((new Date(d)-new Date())/(86400000));}
-function buildInit(){
-const s={},sub={};
-DSTATS.forEach(x=>{s[x.key]=0;x.subs.forEach(y=>{sub[y.key]=0;});});
-return{playerName:“Aventurière”,cfg:DSTATS,stats:s,subs:sub,
-tasks:[
-{id:1,title:“Réviser 20 min”,sk:“s1”,sub:“ss1”,diff:“easy”,timer:25,done:false,at:null},
-{id:2,title:“Préparer un repas”,sk:“s2”,sub:“ss4”,diff:“medium”,timer:null,done:false,at:null},
-{id:3,title:“10 min de yoga”,sk:“s3”,sub:“ss7”,diff:“easy”,timer:10,done:false,at:null},
-],
-objs:[{id:4,title:“Finir le chapitre 3”,sk:“s1”,sub:“ss1”,diff:“hard”,deadline:new Date(Date.now()+4*86400000).toISOString().split(“T”)[0],done:false,timer:null,at:null}],
-done:[],nextId:5,nsk:7,nss:17};
-}
-const KEY=“rpg-v4”;
-function load(){try{const r=localStorage.getItem(KEY);return r?JSON.parse(r):buildInit();}catch{return buildInit();}}
-function save(s){try{localStorage.setItem(KEY,JSON.stringify(s));}catch{}}
+function mkXp(xp){return{level:Math.floor(xp/XP_MAX)+1,cur:xp%XP_MAX,max:XP_MAX}}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2)}
+function daysLeft(d){return Math.ceil((new Date(d)-new Date())/(864e5))}
 
-// ── UI helpers
-function Bar({v,m,color,h=10}){
-return <div style={{background:T.bg,border:`1px solid ${T.border}`,height:h,borderRadius:20,overflow:“hidden”}}>
-<div style={{width:`${Math.min((v/m)*100,100)}%`,height:“100%”,background:`linear-gradient(90deg,${color}55,${color})`,boxShadow:`0 0 8px ${color}77`,transition:“width .7s cubic-bezier(.17,.67,.83,.67)”}}/>
+function buildInit(){
+const stats={},subs={};
+DSTATS.forEach(s=>{stats[s.key]=0;s.subs.forEach(x=>{subs[x.key]=0})});
+return{playerName:“Aventurière”,cfg:DSTATS,stats,subStats:subs,
+tasks:[
+{id:uid(),title:“Réviser 20 min”,sk:“s1”,sub:“ss1”,diff:“easy”,timer:25,deadline:null,done:false,at:null},
+{id:uid(),title:“Préparer un repas”,sk:“s2”,sub:“ss4”,diff:“medium”,timer:null,deadline:null,done:false,at:null},
+{id:uid(),title:“10 min de yoga”,sk:“s3”,sub:“ss7”,diff:“easy”,timer:10,deadline:null,done:false,at:null},
+],
+done:[],nextColor:0};
+}
+
+const KEY=“rpg-v4”;
+function load(){try{const r=localStorage.getItem(KEY);return r?JSON.parse(r):buildInit()}catch{return buildInit()}}
+function save(s){try{localStorage.setItem(KEY,JSON.stringify(s))}catch{}}
+
+/* ═══ PETITS COMPOSANTS ═══ */
+
+function ProgressBar({cur,max,color,h=10}){
+return <div style={{background:T.bg,border:`1px solid ${T.border}`,height:h,borderRadius:2}}>
+<div style={{width:`${Math.min((cur/max)*100,100)}%`,height:“100%”,borderRadius:2,
+background:`linear-gradient(90deg,${color}55,${color})`,boxShadow:`0 0 8px ${color}66`,transition:“width .6s”}}/>
 
   </div>;
 }
 
 function Badge({deadline}){
 const d=daysLeft(deadline);
-const col=d<0||d===0?T.red:d<=3?T.peach:T.lav;
+const col=d<0?T.red:d<=3?T.peach:T.lav;
 const lbl=d<0?“En retard !”:d===0?“Aujourd’hui !”:d===1?“Demain”:`${d} jours`;
-return <span style={{fontFamily:”‘Press Start 2P’”,fontSize:6,color:col,background:col+“22”,border:`1px solid ${col}55`,padding:“2px 6px”,borderRadius:8}}>📅 {lbl}</span>;
+return <span style={{fontFamily:”‘Press Start 2P’”,fontSize:6,color:col,
+border:`1px solid ${col}`,padding:“2px 6px”,marginLeft:6}}>📅 {lbl}</span>;
 }
 
 function Toast({events,onClose}){
-useEffect(()=>{const t=setTimeout(onClose,4000);return()=>clearTimeout(t);},[]);
-return <div style={{position:“fixed”,top:20,left:“50%”,transform:“translateX(-50%)”,background:T.panel,border:`2px solid ${T.accent}`,boxShadow:`0 0 40px ${T.accent}66`,padding:“16px 28px”,zIndex:999,textAlign:“center”,minWidth:220,borderRadius:16}}>
+useEffect(()=>{const t=setTimeout(onClose,4000);return()=>clearTimeout(t)},[]);
+return <div style={{position:“fixed”,top:20,left:“50%”,transform:“translateX(-50%)”,
+background:T.panel2,border:`2px solid ${T.accent}`,boxShadow:`0 0 40px ${T.accent}55`,
+padding:“16px 28px”,zIndex:9999,textAlign:“center”,minWidth:240}}>
 <div style={{fontFamily:”‘Press Start 2P’”,fontSize:10,color:T.accent,marginBottom:8}}>✨ LEVEL UP !</div>
 {events.map((e,i)=><div key={i} style={{fontFamily:“VT323”,fontSize:22,color:T.text}}>{e.icon} {e.label} → Niv.{e.level}</div>)}
 
   </div>;
 }
 
+/* ═══ TASK CARD ═══ */
 function TaskCard({task,cfg,onAction,onDel,isObj}){
-const[tl,setTl]=useState(null);
+const [tl,setTl]=useState(null);
 useEffect(()=>{
 if(!task.at||!task.timer)return;
 const end=task.at+task.timer*60000;
 const tick=()=>setTl(Math.max(0,end-Date.now()));
 tick();const id=setInterval(tick,500);return()=>clearInterval(id);
 },[task.at,task.timer]);
-const fmt=ms=>{const s=Math.floor(ms/1000),m=Math.floor(s/60);return`${m}:${(s%60).toString().padStart(2,"0")}`;};
+
+const fmt=ms=>{const s=Math.floor(ms/1000),m=Math.floor(s/60);return`${m}:${(s%60).toString().padStart(2,"0")}`};
 const inTime=tl!==null&&tl>0;
 const stat=cfg.find(s=>s.key===task.sk);
 const sub=stat?.subs.find(x=>x.key===task.sub);
-const xpB=XP[task.diff];
-return(
-<div style={{border:`1px solid ${task.done?T.border:inTime?T.green+"55":stat?.color+"55"}`,background:task.done?T.bg:T.panel,borderRadius:12,padding:“12px 14px”,marginBottom:10,opacity:task.done?.5:1,position:“relative”,overflow:“hidden”,transition:“all .3s”,boxShadow:task.done?“none”:`0 2px 16px ${stat?.color}18`}}>
-{!task.done&&<div style={{position:“absolute”,left:0,top:0,bottom:0,width:4,borderRadius:“12px 0 0 12px”,background:inTime?T.green:stat?.color,boxShadow:`0 0 8px ${inTime?T.green:stat?.color}`}}/>}
-<div style={{display:“flex”,alignItems:“flex-start”,gap:10}}>
-<button onClick={()=>!task.done&&onAction(task.id,false,isObj)} style={{width:24,height:24,flexShrink:0,marginTop:2,borderRadius:“50%”,border:`2px solid ${task.done?T.border:stat?.color}`,background:task.done?T.border:“transparent”,cursor:task.done?“default”:“pointer”,display:“flex”,alignItems:“center”,justifyContent:“center”,color:T.text,fontSize:11}}>{task.done?“✓”:””}</button>
+const xpB=XP_BASE[task.diff];
+const bColor=task.done?T.border:inTime?T.green+“66”:stat?.color+“55”;
+
+return <div style={{border:`1px solid ${bColor}`,background:task.done?”#120810”:T.panel,
+padding:“12px 14px”,marginBottom:9,opacity:task.done?.5:1,position:“relative”,overflow:“hidden”,transition:“all .3s”}}>
+{!task.done&&<div style={{position:“absolute”,left:0,top:0,bottom:0,width:3,
+background:inTime?T.green:stat?.color,boxShadow:`0 0 8px ${inTime?T.green:stat?.color}`}}/>}
+<div style={{display:“flex”,gap:10,alignItems:“flex-start”}}>
+<button onClick={()=>!task.done&&onAction(task.id,“complete”)}
+style={{width:22,height:22,flexShrink:0,marginTop:2,
+border:`2px solid ${task.done?T.border:stat?.color}`,
+background:task.done?T.border:“transparent”,cursor:task.done?“default”:“pointer”,
+color:T.text,fontSize:12,display:“flex”,alignItems:“center”,justifyContent:“center”}}>
+{task.done?“✓”:””}
+</button>
 <div style={{flex:1,minWidth:0}}>
-<div style={{fontFamily:“VT323”,fontSize:20,color:task.done?T.muted:T.text,textDecoration:task.done?“line-through”:“none”,marginBottom:5}}>{task.title}</div>
-<div style={{display:“flex”,flexWrap:“wrap”,gap:6,alignItems:“center”}}>
-{stat&&<span style={{fontFamily:”‘Press Start 2P’”,fontSize:6,color:stat.color,background:stat.color+“22”,padding:“2px 7px”,borderRadius:8}}>{stat.icon} {stat.label}</span>}
+<div style={{fontFamily:“VT323”,fontSize:20,color:task.done?T.muted:T.text,
+textDecoration:task.done?“line-through”:“none”,marginBottom:5,display:“flex”,alignItems:“center”,flexWrap:“wrap”,gap:4}}>
+{task.title}
+{task.deadline&&!task.done&&<Badge deadline={task.deadline}/>}
+</div>
+<div style={{display:“flex”,flexWrap:“wrap”,gap:6,alignItems:“center”,marginBottom:task.timer&&!task.done?8:0}}>
+{stat&&<span style={{fontFamily:”‘Press Start 2P’”,fontSize:6,color:stat.color}}>{stat.icon} {stat.label}</span>}
 {sub&&<span style={{fontFamily:”‘Press Start 2P’”,fontSize:6,color:T.muted}}>› {sub.icon} {sub.label}</span>}
-<span style={{fontFamily:”‘Press Start 2P’”,fontSize:6,color:T.lav}}>+{xpB} XP{task.at&&inTime?` ⚡+${BONUS}`:””}</span>
-{isObj&&task.deadline&&!task.done&&<Badge deadline={task.deadline}/>}
+<span style={{fontFamily:”‘Press Start 2P’”,fontSize:6,color:T.lav}}>+{xpB} XP{task.at&&inTime?` ⚡+${XP_BONUS}`:””}</span>
 </div>
-{task.timer&&!task.done&&<div style={{marginTop:8}}>
-{task.at
-?<span style={{fontFamily:”‘Press Start 2P’”,fontSize:8,color:inTime?T.green:T.red,padding:“3px 8px”,border:`1px solid ${inTime?T.green:T.red}44`,background:(inTime?T.green:T.red)+“11”,borderRadius:6}}>{tl!==null?(inTime?`⏱ ${fmt(tl)}`:“⌛ Temps écoulé”):”…”}</span>
-:<button onClick={()=>onAction(task.id,true,isObj)} style={{fontFamily:”‘Press Start 2P’”,fontSize:6,background:T.lav+“22”,border:`1px solid ${T.lav}`,color:T.lav,padding:“5px 10px”,borderRadius:6}}>▶ Démarrer {task.timer}min (+{BONUS} XP)</button>
-}
-</div>}
-</div>
-<button onClick={()=>onDel(task.id,isObj)} style={{background:“none”,border:“none”,color:T.muted,fontSize:16,padding:“0 2px”,flexShrink:0}}>✕</button>
-</div>
-</div>
-);
-}
-
-function AddForm({cfg,onAdd,onClose,isObj}){
-const[f,setF]=useState({title:””,sk:cfg[0]?.key||””,sub:””,diff:“easy”,timer:””,deadline:””});
-const subs=cfg.find(s=>s.key===f.sk)?.subs||[];
-const go=()=>{
-if(!f.title.trim())return;
-onAdd({title:f.title,sk:f.sk,sub:f.sub||null,diff:f.diff,timer:f.timer?parseInt(f.timer):null,deadline:isObj&&f.deadline?f.deadline:null,done:false,at:null});
-};
-return(
-<div style={{border:`1px solid ${T.border}`,background:T.panel,padding:16,marginTop:12,borderRadius:12}}>
-<div style={{fontFamily:“VT323”,fontSize:19,color:T.accent,marginBottom:14}}>✦ {isObj?“NOUVEL OBJECTIF”:“NOUVELLE QUÊTE”}</div>
-<input placeholder=“Titre…” value={f.title} onChange={e=>setF(p=>({…p,title:e.target.value}))} onKeyDown={e=>e.key===“Enter”&&go()} style={{marginBottom:10}}/>
-<div style={{display:“flex”,gap:8,marginBottom:8}}>
-<select value={f.sk} onChange={e=>{const ns=e.target.value;const fs=cfg.find(s=>s.key===ns)?.subs[0]?.key||””;setF(p=>({…p,sk:ns,sub:fs}));}}>
-{cfg.map(s=><option key={s.key} value={s.key}>{s.icon} {s.label}</option>)}
-</select>
-<select value={f.sub} onChange={e=>setF(p=>({…p,sub:e.target.value}))}>
-<option value="">— Aucune sous-comp.</option>
-{subs.map(s=><option key={s.key} value={s.key}>{s.icon} {s.label}</option>)}
-</select>
-</div>
-<div style={{display:“flex”,gap:8,marginBottom:8}}>
-<select value={f.diff} onChange={e=>setF(p=>({…p,diff:e.target.value}))}>
-<option value="easy">+15 XP — Facile</option>
-<option value="medium">+30 XP — Moyen</option>
-<option value="hard">+50 XP — Difficile</option>
-</select>
-{!isObj&&<input type=“number” placeholder={`⏱ Timer (min)`} value={f.timer} onChange={e=>setF(p=>({…p,timer:e.target.value}))}/>}
-</div>
-{isObj&&<div style={{marginBottom:12}}>
-<div style={{fontFamily:”‘Press Start 2P’”,fontSize:6,color:T.muted,marginBottom:6}}>DATE LIMITE</div>
-<input type=“date” value={f.deadline} onChange={e=>setF(p=>({…p,deadline:e.target.value}))}/>
-</div>}
-<div style={{display:“flex”,gap:8}}>
-<button onClick={go} style={{flex:1,background:T.accent,border:“none”,color:”#150d1e”,padding:“11px”,fontFamily:”‘Press Start 2P’”,fontSize:7,borderRadius:8}}>AJOUTER ✦</button>
-<button onClick={onClose} style={{background:“none”,border:`1px solid ${T.border}`,color:T.muted,padding:“11px 14px”,fontFamily:”‘Press Start 2P’”,fontSize:7,borderRadius:8}}>✕</button>
-</div>
-</div>
-);
-}
-
-function ConfigTab({state,setState}){
-const[nsf,setNsf]=useState({label:””,icon:“⭐”,color:”#ffaed6”});
-const[showNs,setShowNs]=useState(false);
-const[nsub,setNsub]=useState({});
-const upStat=(k,ch)=>setState(p=>({…p,cfg:p.cfg.map(s=>s.key===k?{…s,…ch}:s)}));
-const delStat=k=>{
-if(!window.confirm(“Supprimer cette compétence ?”))return;
-setState(p=>{const ns={…p.stats},nb={…p.subs};const st=p.cfg.find(s=>s.key===k);delete ns[k];st?.subs.forEach(x=>delete nb[x.key]);return{…p,cfg:p.cfg.filter(s=>s.key!==k),stats:ns,subs:nb};});
-};
-const addStat=()=>{
-if(!nsf.label.trim())return;
-const k=`s${state.nsk}`;
-setState(p=>({…p,cfg:[…p.cfg,{key:k,label:nsf.label,icon:nsf.icon,color:nsf.color,subs:[]}],stats:{…p.stats,[k]:0},nsk:p.nsk+1}));
-setNsf({label:””,icon:“⭐”,color:”#ffaed6”});setShowNs(false);
-};
-const upSub=(sk,xk,ch)=>setState(p=>({…p,cfg:p.cfg.map(s=>s.key===sk?{…s,subs:s.subs.map(x=>x.key===xk?{…x,…ch}:x)}:s)}));
-const delSub=(sk,xk)=>setState(p=>{const nb={…p.subs};delete nb[xk];return{…p,cfg:p.cfg.map(s=>s.key===sk?{…s,subs:s.subs.filter(x=>x.key!==xk)}:s),subs:nb};});
-const addSub=sk=>{
-const f=nsub[sk];if(!f?.label?.trim())return;
-const k=`ss${state.nss}`;
-setState(p=>({…p,cfg:p.cfg.map(s=>s.key===sk?{…s,subs:[…s.subs,{key:k,label:f.label,icon:f.icon||“✦”}]}:s),subs:{…p.subs,[k]:0},nss:p.nss+1}));
-setNsub(p=>({…p,[sk]:{label:””,icon:“✦”}}));
-};
-return(
-<div>
-<div style={{fontFamily:”‘Press Start 2P’”,fontSize:7,color:T.accent,marginBottom:18}}>PERSONNALISER</div>
-{state.cfg.map(stat=>(
-<div key={stat.key} style={{border:`1px solid ${stat.color}44`,background:T.panel,borderRadius:12,marginBottom:12,overflow:“hidden”}}>
-<div style={{padding:“12px 14px”,display:“flex”,alignItems:“center”,gap:8}}>
-<input value={stat.icon} onChange={e=>upStat(stat.key,{icon:e.target.value})} style={{width:40,textAlign:“center”,fontSize:20,padding:“4px”}}/>
-<input value={stat.label} onChange={e=>upStat(stat.key,{label:e.target.value})} style={{flex:1,fontFamily:“VT323”,fontSize:20,color:stat.color}}/>
-<div style={{display:“flex”,gap:3,flexWrap:“wrap”,maxWidth:100}}>
-{COLORS.map(c=><div key={c} onClick={()=>upStat(stat.key,{color:c})} style={{width:15,height:15,background:c,borderRadius:“50%”,cursor:“pointer”,border:stat.color===c?“2px solid white”:“2px solid transparent”}}/>)}
-</div>
-<button onClick={()=>delStat(stat.key)} style={{background:“none”,border:“none”,color:T.red,fontSize:16,padding:“0 4px”}}>🗑</button>
-</div>
-<div style={{padding:“0 14px 12px 32px”,borderLeft:`3px solid ${stat.color}44`,marginLeft:14}}>
-{stat.subs.map(sub=>(
-<div key={sub.key} style={{display:“flex”,alignItems:“center”,gap:6,marginBottom:6}}>
-<input value={sub.icon} onChange={e=>upSub(stat.key,sub.key,{icon:e.target.value})} style={{width:34,textAlign:“center”,fontSize:16,padding:“3px”}}/>
-<input value={sub.label} onChange={e=>upSub(stat.key,sub.key,{label:e.target.value})} style={{flex:1,fontFamily:“VT323”,fontSize:17}}/>
-<button onClick={()=>delSub(stat.key,sub.key)} style={{background:“none”,border:“none”,color:T.muted,fontSize:13}}>✕</button>
-</div>
-))}
-<div style={{display:“flex”,gap:6,marginTop:6}}>
-<input value={nsub[stat.key]?.icon||””} onChange={e=>setNsub(p=>({…p,[stat.key]:{…p[stat.key],icon:e.target.value}}))} placeholder=“🌟” style={{width:34,textAlign:“center”,padding:“3px”}}/>
-<input value={nsub[stat.key]?.label||””} onChange={e=>setNsub(p=>({…p,[stat.key]:{…p[stat.key],label:e.target.value}}))} onKeyDown={e=>e.key===“Enter”&&addSub(stat.key)} placeholder=“Nouvelle sous-comp…” style={{flex:1,fontFamily:“VT323”,fontSize:16}}/>
-<button onClick={()=>addSub(stat.key)} style={{background:stat.color+“33”,border:`1px solid ${stat.color}`,color:stat.color,padding:“3px 10px”,fontFamily:”‘Press Start 2P’”,fontSize:8,borderRadius:6}}>+</button>
-</div>
-</div>
-</div>
-))}
-{showNs?(
-<div style={{border:`1px solid ${T.border}`,background:T.panel,borderRadius:12,padding:16,marginTop:8}}>
-<div style={{fontFamily:“VT323”,fontSize:18,color:T.accent,marginBottom:12}}>✦ NOUVELLE COMPÉTENCE</div>
-<div style={{display:“flex”,gap:8,marginBottom:10}}>
-<input value={nsf.icon} onChange={e=>setNsf(p=>({…p,icon:e.target.value}))} style={{width:40,textAlign:“center”,fontSize:20,padding:“4px”}}/>
-<input value={nsf.label} placeholder=“Nom…” onChange={e=>setNsf(p=>({…p,label:e.target.value}))} onKeyDown={e=>e.key===“Enter”&&addStat()} style={{flex:1,fontFamily:“VT323”,fontSize:18}}/>
-</div>
-<div style={{display:“flex”,gap:4,flexWrap:“wrap”,marginBottom:12}}>
-{COLORS.map(c=><div key={c} onClick={()=>setNsf(p=>({…p,color:c}))} style={{width:22,height:22,background:c,borderRadius:“50%”,cursor:“pointer”,border:nsf.color===c?“3px solid white”:“2px solid transparent”}}/>)}
-</div>
-<div style={{display:“flex”,gap:8}}>
-<button onClick={addStat} style={{flex:1,background:T.accent,border:“none”,color:”#150d1e”,padding:“10px”,fontFamily:”‘Press Start 2P’”,fontSize:7,borderRadius:8}}>AJOUTER</button>
-<button onClick={()=>setShowNs(false)} style={{background:“none”,border:`1px solid ${T.border}`,color:T.muted,padding:“10px 14px”,fontFamily:”‘Press Start 2P’”,fontSize:7,borderRadius:8}}>✕</button>
-</div>
-</div>
-):(
-<button onClick={()=>setShowNs(true)} style={{width:“100%”,border:`1px dashed ${T.accent}88`,background:“transparent”,color:T.accent,padding:“13px”,fontFamily:”‘Press Start 2P’”,fontSize:7,marginTop:8,borderRadius:10}}>✦ NOUVELLE COMPÉTENCE</button>
+{task.timer&&!task.done&&(
+task.at?
+<div style={{display:“inline-flex”,alignItems:“center”,gap:6,padding:“4px 10px”,
+border:`1px solid ${inTime?T.green+"44":T.red+"44"}`,background:inTime?T.green+“11”:T.red+“11”}}>
+<span style={{fontFamily:”‘Press Start 2P’”,fontSize:8,color:inTime?T.green:T.red}}>
+{tl!==null?(inTime?`⏱ ${fmt(tl)}`:“⌛ Temps écoulé”):”…”}
+</span>
+</div>:
+<button onClick={()=>onAction(task.id,“start”)} style={{fontFamily:”‘Press Start 2P’”,fontSize:6,
+background:T.lav+“22”,border:`1px solid ${T.lav}`,color:T.lav,padding:“5px 10px”,cursor:“pointer”}}>
+▶ Démarrer {task.timer}min (+{XP_BONUS} XP bonus)
+</button>
 )}
 </div>
-);
+<button onClick={()=>onDel(task.id)} style={{background:“none”,border:“none”,color:T.muted,cursor:“pointer”,fontSize:14,flexShrink:0}}>✕</button>
+</div>
+
+  </div>;
 }
 
-export default function App(){
-const[state,setState]=useState(load);
+/* ═══ FORMULAIRE AJOUT QUÊTE ═══ */
+function AddTaskForm({cfg,onAdd,onClose,isObj}){
+const[f,setF]=useState({title:””,sk:cfg[0]?.key||””,sub:””,diff:“easy”,timer:””,deadline:””});
+const subs=cfg.find(s=>s.key===f.sk)?.subs||[];
+return <div style={{border:`1px solid ${T.glow}`,background:T.panel2,padding:16,marginTop:12}}>
+<div style={{fontFamily:”‘Press Start 2P’”,fontSize:7,color:T.accent,marginBottom:14}}>✦ {isObj?“NOUVEL OBJECTIF”:“NOUVELLE QUÊTE”}</div>
+<input placeholder=“Titre…” value={f.title} onChange={e=>setF(p=>({…p,title:e.target.value}))}
+onKeyDown={e=>e.key===“Enter”&&f.title.trim()&&onAdd(f)}
+style={{…inp,marginBottom:8}}/>
+<div style={{display:“grid”,gridTemplateColumns:“1fr 1fr”,gap:8,marginBottom:8}}>
+<select value={f.sk} onChange={e=>{setF(p=>({…p,sk:e.target.value,sub:””}))}} style={inp}>
+{cfg.map(s=><option key={s.key} value={s.key}>{s.icon} {s.label}</option>)}
+</select>
+<select value={f.sub} onChange={e=>setF(p=>({…p,sub:e.target.value}))} style={inp}>
+<option value="">— Sous-comp.</option>
+{subs.map(x=><option key={x.key} value={x.key}>{x.icon} {x.label}</option>)}
+</select>
+</div>
+<div style={{display:“grid”,gridTemplateColumns:“1fr 1fr 1fr”,gap:8,marginBottom:12}}>
+<select value={f.diff} onChange={e=>setF(p=>({…p,diff:e.target.value}))} style={inp}>
+<option value="easy">+15 — Facile</option>
+<option value="medium">+30 — Moyen</option>
+<option value="hard">+50 — Difficile</option>
+</select>
+<input type=“number” placeholder=“⏱ min” value={f.timer}
+onChange={e=>setF(p=>({…p,timer:e.target.value}))} style={inp}/>
+<input type=“date” value={f.deadline}
+onChange={e=>setF(p=>({…p,deadline:e.target.value}))} style={{…inp,colorScheme:“dark”}}/>
+</div>
+<div style={{display:“flex”,gap:8}}>
+<button onClick={()=>f.title.trim()&&onAdd(f)} style={{flex:1,background:T.accent,border:“none”,
+color:T.bg,padding:“10px”,fontFamily:”‘Press Start 2P’”,fontSize:7,cursor:“pointer”}}>AJOUTER ✦</button>
+<button onClick={onClose} style={{background:“none”,border:`1px solid ${T.border}`,
+color:T.muted,padding:“10px 14px”,fontFamily:”‘Press Start 2P’”,fontSize:7,cursor:“pointer”}}>✕</button>
+</div>
+
+  </div>;
+}
+
+/* ═══ ONGLET PERSONNALISATION ═══ */
+function ConfigTab({cfg,onSave}){
+const[c,setC]=useState(()=>JSON.parse(JSON.stringify(cfg)));
+const[openStat,setOpenStat]=useState(null);
+const[editingIcon,setEditingIcon]=useState(null); // {type:‘stat’|‘sub’, sk, subKey}
+
+const updateStat=(sk,field,val)=>setC(p=>p.map(s=>s.key===sk?{…s,[field]:val}:s));
+const addStat=()=>{
+const key=“s”+uid();
+setC(p=>[…p,{key,label:“Nouvelle stat”,icon:“⭐”,color:COLORS[0],subs:[]}]);
+};
+const removeStat=sk=>setC(p=>p.filter(s=>s.key!==sk));
+const addSub=sk=>{
+const key=“ss”+uid();
+setC(p=>p.map(s=>s.key===sk?{…s,subs:[…s.subs,{key,label:“Sous-comp.”,icon:“✦”}]}:s));
+};
+const updateSub=(sk,subKey,field,val)=>setC(p=>p.map(s=>s.key===sk?{…s,subs:s.subs.map(x=>x.key===subKey?{…x,[field]:val}:x)}:s));
+const removeSub=(sk,subKey)=>setC(p=>p.map(s=>s.key===sk?{…s,subs:s.subs.filter(x=>x.key!==subKey)}:s));
+
+return <div>
+<div style={{fontFamily:”‘Press Start 2P’”,fontSize:7,color:T.accent,marginBottom:16}}>PERSONNALISATION</div>
+<div style={{fontFamily:“VT323”,fontSize:17,color:T.muted,marginBottom:16}}>
+Modifie tes stats, sous-stats, icônes et couleurs librement. Clique sur une stat pour la déplier.
+</div>
+
+```
+{c.map(s=><div key={s.key} style={{marginBottom:10,border:`1px solid ${s.color}44`,background:T.panel}}>
+  {/* Header stat */}
+  <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 12px",
+    background:openStat===s.key?T.panel2:T.panel,cursor:"pointer"}}
+    onClick={()=>setOpenStat(p=>p===s.key?null:s.key)}>
+    {/* Icon picker */}
+    <div onClick={e=>{e.stopPropagation();setEditingIcon({type:"stat",sk:s.key})}}
+      style={{width:32,height:32,display:"flex",alignItems:"center",justifyContent:"center",
+        fontSize:20,border:`1px solid ${T.border}`,background:T.bg,cursor:"pointer",flexShrink:0}}
+      title="Changer l'icône">{s.icon}</div>
+    <input value={s.label} onClick={e=>e.stopPropagation()}
+      onChange={e=>updateStat(s.key,"label",e.target.value)}
+      style={{...inp,flex:1,fontSize:18}}/>
+    {/* Color picker */}
+    <div onClick={e=>e.stopPropagation()} style={{display:"flex",flexWrap:"wrap",gap:3,maxWidth:110}}>
+      {COLORS.map(col=><div key={col} onClick={()=>updateStat(s.key,"color",col)}
+        style={{width:14,height:14,background:col,border:s.color===col?`2px solid #fff`:"1px solid transparent",
+          cursor:"pointer",borderRadius:2}}/>)}
+    </div>
+    <button onClick={e=>{e.stopPropagation();removeStat(s.key)}}
+      style={{background:"none",border:"none",color:T.red,cursor:"pointer",fontSize:16,flexShrink:0}}>✕</button>
+    <span style={{color:T.muted,fontSize:12,flexShrink:0}}>{openStat===s.key?"▲":"▼"}</span>
+  </div>
+
+  {/* Sous-stats */}
+  {openStat===s.key&&<div style={{padding:"8px 12px 12px",borderTop:`1px solid ${T.border}`}}>
+    <div style={{fontFamily:"'Press Start 2P'",fontSize:6,color:T.muted,marginBottom:10}}>SOUS-COMPÉTENCES</div>
+    {s.subs.map(x=><div key={x.key} style={{display:"flex",gap:8,alignItems:"center",marginBottom:7}}>
+      <div onClick={()=>setEditingIcon({type:"sub",sk:s.key,subKey:x.key})}
+        style={{width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",
+          fontSize:17,border:`1px solid ${T.border}`,background:T.bg,cursor:"pointer",flexShrink:0}}>{x.icon}</div>
+      <input value={x.label} onChange={e=>updateSub(s.key,x.key,"label",e.target.value)}
+        style={{...inp,flex:1,fontSize:17}}/>
+      <button onClick={()=>removeSub(s.key,x.key)}
+        style={{background:"none",border:"none",color:T.red,cursor:"pointer",fontSize:14,flexShrink:0}}>✕</button>
+    </div>)}
+    <button onClick={()=>addSub(s.key)} style={{fontFamily:"'Press Start 2P'",fontSize:6,
+      background:"transparent",border:`1px dashed ${T.glow}`,color:T.lav,
+      padding:"6px 12px",cursor:"pointer",marginTop:4,width:"100%"}}>+ Ajouter sous-compétence</button>
+  </div>}
+</div>)}
+
+<button onClick={addStat} style={{width:"100%",border:`1px dashed ${T.glow}`,background:"transparent",
+  color:T.accent,padding:"12px",cursor:"pointer",fontFamily:"'Press Start 2P'",fontSize:7,marginBottom:14}}>
+  + AJOUTER UNE STAT
+</button>
+
+<button onClick={()=>onSave(c)} style={{width:"100%",background:T.accent,border:"none",
+  color:T.bg,padding:"12px",fontFamily:"'Press Start 2P'",fontSize:8,cursor:"pointer"}}>
+  SAUVEGARDER ✦
+</button>
+
+{/* Modal icon picker */}
+{editingIcon&&<div style={{position:"fixed",inset:0,background:"#000000aa",zIndex:999,
+  display:"flex",alignItems:"center",justifyContent:"center"}}
+  onClick={()=>setEditingIcon(null)}>
+  <div style={{background:T.panel2,border:`1px solid ${T.glow}`,padding:20,maxWidth:300}}
+    onClick={e=>e.stopPropagation()}>
+    <div style={{fontFamily:"'Press Start 2P'",fontSize:7,color:T.accent,marginBottom:12}}>CHOISIR UNE ICÔNE</div>
+    <input placeholder="Colle ou tape un emoji..." autoFocus
+      style={{...inp,marginBottom:12,fontSize:24,textAlign:"center"}}
+      onInput={e=>{
+        const v=e.target.value;
+        if(!v)return;
+        if(editingIcon.type==="stat") updateStat(editingIcon.sk,"icon",v);
+        else updateSub(editingIcon.sk,editingIcon.subKey,"icon",v);
+        setEditingIcon(null);
+      }}/>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(8,1fr)",gap:6}}>
+      {["📚","🎓","🧠","✏️","🍳","🥗","🍰","☕","💪","🏃","🧘","⚽","💌","👯","🏠","❤️","🎀","🎨","🎵","✍️","🌸","🌙","🛁","😴","⭐","🦋","💎","🔥","🌈","🎯","🧩","🎮"].map(em=>
+        <div key={em} onClick={()=>{
+          if(editingIcon.type==="stat") updateStat(editingIcon.sk,"icon",em);
+          else updateSub(editingIcon.sk,editingIcon.subKey,"icon",em);
+          setEditingIcon(null);
+        }} style={{fontSize:22,cursor:"pointer",textAlign:"center",padding:4,
+          borderRadius:4,background:T.panel,border:`1px solid ${T.border}`}}>{em}</div>
+      )}
+    </div>
+  </div>
+</div>}
+```
+
+  </div>;
+}
+
+/* ═══ ONGLET STATS ═══ */
+function StatsTab({cfg,stats,subStats}){
+const[open,setOpen]=useState({});
+const total=cfg.reduce((a,s)=>a+mkXp(stats[s.key]||0).level,0);
+return <div>
+<div style={{fontFamily:”‘Press Start 2P’”,fontSize:7,color:T.accent,marginBottom:16}}>FICHE DE PERSONNAGE</div>
+<div style={{background:`linear-gradient(135deg,${T.panel},${T.panel2})`,border:`1px solid ${T.accent}33`,
+padding:16,marginBottom:20,display:“flex”,gap:14,alignItems:“center”,boxShadow:`0 0 24px ${T.accent}22`}}>
+<div style={{fontSize:48}}>🧸</div>
+<div>
+<div style={{fontFamily:“VT323”,fontSize:26,color:T.text,marginBottom:4}}>Niveau total</div>
+<div style={{fontFamily:“VT323”,fontSize:48,color:T.gold,lineHeight:1}}>{total}</div>
+</div>
+</div>
+{cfg.map(s=>{
+const{level,cur,max}=mkXp(stats[s.key]||0);
+return <div key={s.key} style={{marginBottom:10}}>
+<div onClick={()=>setOpen(p=>({…p,[s.key]:!p[s.key]}))}
+style={{background:open[s.key]?T.panel2:T.panel,border:`1px solid ${open[s.key]?s.color+"77":s.color+"33"}`,
+padding:“11px 14px”,cursor:“pointer”,boxShadow:open[s.key]?`0 0 14px ${s.color}22`:“none”}}>
+<div style={{display:“flex”,justifyContent:“space-between”,alignItems:“center”,marginBottom:7}}>
+<span style={{fontFamily:“VT323”,fontSize:22,color:s.color}}>{s.icon}  {s.label}</span>
+<div style={{display:“flex”,alignItems:“center”,gap:10}}>
+<span style={{fontFamily:”‘Press Start 2P’”,fontSize:8,color:s.color}}>Niv.{level}</span>
+<span style={{color:T.muted,fontSize:12}}>{open[s.key]?“▲”:“▼”}</span>
+</div>
+</div>
+<ProgressBar cur={cur} max={max} color={s.color}/>
+<div style={{fontFamily:”‘Press Start 2P’”,fontSize:6,color:T.muted,marginTop:4,textAlign:“right”}}>{cur}/{max} XP</div>
+</div>
+{open[s.key]&&<div style={{marginLeft:16,borderLeft:`2px solid ${s.color}44`,paddingLeft:12,paddingTop:6}}>
+{s.subs.map(x=>{
+const xi=mkXp(subStats[x.key]||0);
+return <div key={x.key} style={{background:T.panel2,border:`1px solid ${T.border}33`,
+padding:“9px 12px”,marginBottom:6}}>
+<div style={{display:“flex”,justifyContent:“space-between”,marginBottom:5}}>
+<span style={{fontFamily:“VT323”,fontSize:18,color:T.text}}>{x.icon} {x.label}</span>
+<span style={{fontFamily:”‘Press Start 2P’”,fontSize:7,color:T.muted}}>Niv.{xi.level}</span>
+</div>
+<ProgressBar cur={xi.cur} max={xi.max} color={s.color} h={7}/>
+<div style={{fontFamily:”‘Press Start 2P’”,fontSize:6,color:T.muted,marginTop:3,textAlign:“right”}}>{xi.cur}/{xi.max} XP</div>
+</div>;
+})}
+</div>}
+</div>;
+})}
+
+  </div>;
+}
+
+/* ═══ ONGLET OBJECTIFS ═══ */
+function ObjectifsTab({tasks,cfg,onAction,onDel,onAdd}){
+const[showAdd,setShowAdd]=useState(false);
+const objs=tasks.filter(t=>t.deadline);
+const sorted=[…objs].sort((a,b)=>new Date(a.deadline)-new Date(b.deadline));
+const upcoming=sorted.filter(t=>!t.done);
+const done=sorted.filter(t=>t.done);
+
+return <div>
+<div style={{fontFamily:”‘Press Start 2P’”,fontSize:7,color:T.accent,marginBottom:6}}>OBJECTIFS & DEADLINES</div>
+<div style={{fontFamily:“VT323”,fontSize:17,color:T.muted,marginBottom:16}}>
+Les quêtes avec une date limite apparaissent ici, triées par urgence.
+</div>
+
+```
+{upcoming.length===0&&<div style={{textAlign:"center",padding:36,color:T.muted,fontFamily:"VT323",fontSize:20}}>
+  Aucun objectif en cours 🌸<br/>Ajoute une quête avec une deadline !
+</div>}
+
+{upcoming.map(t=><TaskCard key={t.id} task={t} cfg={cfg} onAction={onAction} onDel={onDel} isObj/>)}
+
+{done.length>0&&<>
+  <div style={{fontFamily:"'Press Start 2P'",fontSize:6,color:T.muted,margin:"16px 0 10px"}}>ACCOMPLIS ✓</div>
+  {done.map(t=><TaskCard key={t.id} task={t} cfg={cfg} onAction={onAction} onDel={onDel} isObj/>)}
+</>}
+
+{showAdd
+  ?<AddTaskForm cfg={cfg} isObj onAdd={f=>{onAdd({...f,deadline:f.deadline||new Date(Date.now()+864e5).toISOString().split("T")[0]});setShowAdd(false);}} onClose={()=>setShowAdd(false)}/>
+  :<button onClick={()=>setShowAdd(true)} style={{width:"100%",border:`1px dashed ${T.glow}`,background:"transparent",
+    color:T.accent,padding:"13px",cursor:"pointer",fontFamily:"'Press Start 2P'",fontSize:7,marginTop:12}}>
+    ✦ NOUVEL OBJECTIF
+  </button>
+}
+```
+
+  </div>;
+}
+
+/* ═══ ONGLET JOURNAL ═══ */
+function JournalTab({done,cfg}){
+return <div>
+<div style={{fontFamily:”‘Press Start 2P’”,fontSize:7,color:T.accent,marginBottom:16}}>JOURNAL D’AVENTURE</div>
+{done.length===0
+?<div style={{textAlign:“center”,padding:48,color:T.muted,fontFamily:“VT323”,fontSize:20}}>
+Aucune quête accomplie.<br/>C’est ici que commence ta légende 🌸
+</div>
+:[…done].reverse().map((t,i)=>{
+const s=cfg.find(x=>x.key===t.sk);
+const sub=s?.subs.find(x=>x.key===t.sub);
+const d=new Date(t.completedAt);
+return <div key={i} style={{border:`1px solid ${T.border}`,padding:“10px 14px”,marginBottom:8,
+background:T.panel,display:“flex”,justifyContent:“space-between”,alignItems:“center”}}>
+<div>
+<div style={{fontFamily:“VT323”,fontSize:19,color:T.muted,marginBottom:3}}>✓ {t.title}</div>
+<div style={{display:“flex”,gap:8,flexWrap:“wrap”,alignItems:“center”}}>
+{s&&<span style={{fontFamily:”‘Press Start 2P’”,fontSize:6,color:s.color}}>{s.icon} {s.label}</span>}
+{sub&&<span style={{fontFamily:”‘Press Start 2P’”,fontSize:6,color:T.muted}}>› {sub.icon} {sub.label}</span>}
+<span style={{fontFamily:”‘Press Start 2P’”,fontSize:6,color:T.lav}}>+{t.xp} XP{t.bonus?” ⚡”:””}</span>
+</div>
+</div>
+<div style={{fontFamily:“VT323”,fontSize:14,color:T.muted,textAlign:“right”,flexShrink:0,marginLeft:10}}>
+{d.toLocaleDateString(“fr-FR”)}<br/>
+<span style={{fontSize:12}}>{d.toLocaleTimeString(“fr-FR”,{hour:“2-digit”,minute:“2-digit”})}</span>
+</div>
+</div>;
+})
+}
+
+  </div>;
+}
+
+/* ═══ APP PRINCIPALE ═══ */
+const inp={background:T.panel2,border:`1px solid ${T.border}`,color:T.text,
+padding:“8px 10px”,fontFamily:“VT323”,fontSize:18,outline:“none”,width:“100%”};
+
+const mkXp=xp=>({level:Math.floor(xp/XP_MAX)+1,cur:xp%XP_MAX,max:XP_MAX});
+
+function App(){
+const[st,setSt]=useState(load);
 const[tab,setTab]=useState(“quetes”);
 const[showAdd,setShowAdd]=useState(false);
-const[openSt,setOpenSt]=useState({});
 const[toast,setToast]=useState(null);
-const[editN,setEditN]=useState(false);
-const[nameIn,setNameIn]=useState(””);
+const[editName,setEditName]=useState(false);
+const[nameInput,setNameInput]=useState(””);
 const[motiv]=useState(()=>MOTIVS[Math.floor(Math.random()*MOTIVS.length)]);
 
-useEffect(()=>{save(state);},[state]);
+useEffect(()=>{save(st)},[st]);
 
-const doTask=useCallback((id,start,isObj)=>{
-setState(prev=>{
-const list=isObj?prev.objs:prev.tasks;
-const task=list.find(t=>t.id===id);
+/* ── Actions quêtes ── */
+const handleTask=useCallback((id,type)=>{
+setSt(prev=>{
+const task=prev.tasks.find(t=>t.id===id);
 if(!task)return prev;
-if(start&&task.timer&&!task.at&&!task.done){
-const upd=list.map(t=>t.id===id?{…t,at:Date.now()}:t);
-return isObj?{…prev,objs:upd}:{…prev,tasks:upd};
-}
-if(task.done)return prev;
-const xpB=XP[task.diff];
-const inTime=task.at&&task.timer?task.at+task.timer*60000>Date.now():false;
-const xpG=xpB+(inTime?BONUS:0);
-const ns={…prev.stats},nb={…prev.subs};
-const ups=[];
-if(ns[task.sk]!==undefined){
-const op=ns[task.sk]||0;ns[task.sk]=op+xpG;
-if(lvl(ns[task.sk]).level>lvl(op).level){const s=prev.cfg.find(x=>x.key===task.sk);if(s)ups.push({icon:s.icon,label:s.label,level:lvl(ns[task.sk]).level});}
-}
-if(task.sub&&nb[task.sub]!==undefined){
-const os=nb[task.sub]||0;nb[task.sub]=os+xpG;
-if(lvl(nb[task.sub]).level>lvl(os).level){const st=prev.cfg.find(x=>x.key===task.sk);const sb=st?.subs.find(x=>x.key===task.sub);if(sb)ups.push({icon:sb.icon,label:sb.label,level:lvl(nb[task.sub]).level});}
-}
-if(ups.length)setToast(ups);
-const upd=list.map(t=>t.id===id?{…t,done:true}:t);
-const dc=[…prev.done,{…task,completedAt:Date.now(),xpG,bonus:inTime}];
-return{…prev,stats:ns,subs:nb,…(isObj?{objs:upd}:{tasks:upd}),done:dc};
+
+```
+  if(type==="start"&&task.timer&&!task.at&&!task.done)
+    return{...prev,tasks:prev.tasks.map(t=>t.id===id?{...t,at:Date.now()}:t)};
+
+  if(type!=="complete"||task.done)return prev;
+
+  const xpB=XP_BASE[task.diff];
+  const inTime=task.at&&task.timer?task.at+task.timer*60000>Date.now():false;
+  const xpGain=xpB+(inTime?XP_BONUS:0);
+
+  const nStats={...prev.stats};
+  const nSubs={...prev.subStats};
+  const ups=[];
+
+  if(nStats[task.sk]!==undefined){
+    const old=nStats[task.sk]||0;
+    nStats[task.sk]=old+xpGain;
+    if(mkXp(nStats[task.sk]).level>mkXp(old).level){
+      const s=prev.cfg.find(x=>x.key===task.sk);
+      ups.push({icon:s?.icon,label:s?.label,level:mkXp(nStats[task.sk]).level});
+    }
+  }
+  if(task.sub&&nSubs[task.sub]!==undefined){
+    const old=nSubs[task.sub]||0;
+    nSubs[task.sub]=old+xpGain;
+    if(mkXp(nSubs[task.sub]).level>mkXp(old).level){
+      const sub=prev.cfg.flatMap(s=>s.subs).find(x=>x.key===task.sub);
+      ups.push({icon:sub?.icon,label:sub?.label,level:mkXp(nSubs[task.sub]).level});
+    }
+  }
+  if(ups.length>0)setToast(ups);
+
+  return{...prev,stats:nStats,subStats:nSubs,
+    tasks:prev.tasks.map(t=>t.id===id?{...t,done:true}:t),
+    done:[...prev.done,{...task,completedAt:Date.now(),xp:xpGain,bonus:inTime}]};
 });
+```
+
 },[]);
 
-const delTask=(id,isObj)=>setState(p=>({…p,…(isObj?{objs:p.objs.filter(t=>t.id!==id)}:{tasks:p.tasks.filter(t=>t.id!==id)})}));
-const addTask=(f,isObj)=>{
-setState(p=>({…p,…(isObj?{objs:[…p.objs,{…f,id:p.nextId}]}:{tasks:[…p.tasks,{…f,id:p.nextId}]}),nextId:p.nextId+1}));
+const delTask=id=>setSt(p=>({…p,tasks:p.tasks.filter(t=>t.id!==id)}));
+
+const addTask=f=>{
+const timer=f.timer?parseInt(f.timer):null;
+const deadline=f.deadline||null;
+setSt(p=>({…p,tasks:[…p.tasks,{id:uid(),title:f.title,sk:f.sk,sub:f.sub||null,
+diff:f.diff,timer,deadline,done:false,at:null}]}));
 setShowAdd(false);
 };
 
-const totalLvl=state.cfg.reduce((a,s)=>a+lvl(state.stats[s.key]||0).level,0);
-const nd=state.tasks.filter(t=>t.done).length;
-const nod=state.objs.filter(t=>t.done).length;
-const isObj=tab===“objectifs”;
+const saveCfg=newCfg=>{
+setSt(prev=>{
+const nStats={…prev.stats};
+const nSubs={…prev.subStats};
+newCfg.forEach(s=>{
+if(nStats[s.key]===undefined)nStats[s.key]=0;
+s.subs.forEach(x=>{if(nSubs[x.key]===undefined)nSubs[x.key]=0});
+});
+return{…prev,cfg:newCfg,stats:nStats,subStats:nSubs};
+});
+setTab(“quetes”);
+};
 
-const TABS=[[“quetes”,“⚔”,“Quêtes”],[“objectifs”,“📅”,“Objectifs”],[“stats”,“🌸”,“Stats”],[“config”,“✨”,“Perso”],[“journal”,“📜”,“Journal”]];
+const quetes=st.tasks.filter(t=>!t.deadline);
+const nbDone=quetes.filter(t=>t.done).length;
+const tabs=[[“quetes”,“⚔ Quêtes”],[“objectifs”,“📅 Objectifs”],[“stats”,“🌸 Stats”],[“journal”,“📜 Journal”],[“config”,“⚙ Config”]];
 
-return(
-<div style={{background:T.bg,minHeight:“100vh”,color:T.text,paddingBottom:60}}>
-<style>{`@keyframes shimmer{0%,100%{opacity:1}50%{opacity:.65}} @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}} *{box-sizing:border-box} button{transition:all .15s;outline:none;cursor:pointer;border-radius:0} button:hover{filter:brightness(1.2)} input,select{background:${T.panel2};border:1px solid ${T.border};color:${T.text};padding:9px 10px;font-family:VT323;font-size:18px;outline:none;width:100%;border-radius:8px} input:focus,select:focus{border-color:${T.accent};box-shadow:0 0 8px ${T.accent}44} input::placeholder{color:${T.muted}} input[type=date]{color-scheme:dark}`}</style>
+return <div style={{background:T.bg,minHeight:“100vh”,color:T.text,paddingBottom:60}}>
+<style>{`@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}} @keyframes shimmer{0%,100%{opacity:1}50%{opacity:.6}} button{outline:none;cursor:pointer;transition:filter .15s} button:hover{filter:brightness(1.2)} input,select{background:${T.panel2};border:1px solid ${T.border};color:${T.text}; padding:8px 10px;font-family:VT323;font-size:18px;outline:none} input:focus,select:focus{border-color:${T.accent};box-shadow:0 0 8px ${T.accent}44} input::placeholder{color:${T.muted}} input[type=date]{color-scheme:dark}`}</style>
 
 ```
-  {toast&&<Toast events={toast} onClose={()=>setToast(null)}/>}
+{toast&&<Toast events={toast} onClose={()=>setToast(null)}/>}
 
-  {/* Header */}
-  <div style={{background:`linear-gradient(160deg,${T.panel},${T.panel2})`,borderBottom:`1px solid ${T.border}`,padding:"14px 18px"}}>
-    <div style={{fontFamily:"VT323",fontSize:15,color:T.lav,textAlign:"center",marginBottom:12,animation:"shimmer 3s ease-in-out infinite"}}>✦ {motiv} ✦</div>
-    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>
-      <div style={{display:"flex",alignItems:"center",gap:12}}>
-        <div style={{width:56,height:56,background:`linear-gradient(135deg,${T.accent}33,${T.lav}33)`,border:`2px solid ${T.accent}66`,borderRadius:16,display:"flex",alignItems:"center",justifyContent:"center",fontSize:30,boxShadow:`0 0 24px ${T.accent}44`,animation:"float 3.5s ease-in-out infinite"}}>🧸</div>
-        <div>
-          <div style={{fontFamily:"'Press Start 2P'",fontSize:6,color:T.accent,letterSpacing:2,marginBottom:5}}>✦ LIFE RPG ✦</div>
-          {editN?(
-            <div style={{display:"flex",gap:6}}>
-              <input value={nameIn} onChange={e=>setNameIn(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"){setState(p=>({...p,playerName:nameIn||p.playerName}));setEditN(false);}}} style={{fontSize:16,width:130,padding:"4px 8px"}} autoFocus/>
-              <button onClick={()=>{setState(p=>({...p,playerName:nameIn||p.playerName}));setEditN(false);}} style={{background:T.accent,border:"none",color:"#150d1e",padding:"4px 10px",borderRadius:6,fontFamily:"'Press Start 2P'",fontSize:7}}>OK</button>
-            </div>
-          ):(
-            <div style={{fontFamily:"VT323",fontSize:26,color:T.text,cursor:"pointer"}} onClick={()=>{setNameIn(state.playerName);setEditN(true);}}>
-              {state.playerName} <span style={{fontSize:14,color:T.muted}}>✎</span>
-            </div>
-          )}
-        </div>
+{/* ── Header ── */}
+<div style={{background:`linear-gradient(135deg,${T.panel},${T.panel2})`,
+  borderBottom:`2px solid ${T.border}`,padding:"14px 18px"}}>
+  <div style={{fontFamily:"VT323",fontSize:16,color:T.lav,textAlign:"center",
+    marginBottom:12,animation:"shimmer 3s ease-in-out infinite"}}>✦ {motiv} ✦</div>
+  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>
+    <div style={{display:"flex",alignItems:"center",gap:12}}>
+      <div style={{fontSize:44,animation:"float 3s ease-in-out infinite"}}>🧸</div>
+      <div>
+        <div style={{fontFamily:"'Press Start 2P'",fontSize:6,color:T.accent,letterSpacing:2,marginBottom:5}}>✦ LIFE RPG ✦</div>
+        {editName
+          ?<div style={{display:"flex",gap:6}}>
+            <input value={nameInput} onChange={e=>setNameInput(e.target.value)}
+              onKeyDown={e=>{if(e.key==="Enter"){setSt(p=>({...p,playerName:nameInput||p.playerName}));setEditName(false)}}}
+              style={{fontSize:16,width:130,padding:"4px 8px"}} autoFocus/>
+            <button onClick={()=>{setSt(p=>({...p,playerName:nameInput||p.playerName}));setEditName(false)}}
+              style={{background:T.accent,border:"none",color:T.bg,padding:"4px 8px",fontFamily:"'Press Start 2P'",fontSize:7}}>OK</button>
+          </div>
+          :<div style={{fontFamily:"VT323",fontSize:26,color:T.text,cursor:"pointer"}}
+            onClick={()=>{setNameInput(st.playerName);setEditName(true)}}>
+            {st.playerName} <span style={{fontSize:14,color:T.muted}}>✎</span>
+          </div>
+        }
       </div>
-      <div style={{textAlign:"right"}}>
-        <div style={{fontFamily:"'Press Start 2P'",fontSize:6,color:T.muted,marginBottom:3}}>NIV. TOTAL</div>
-        <div style={{fontFamily:"VT323",fontSize:44,color:T.gold,lineHeight:1}}>{totalLvl}</div>
+    </div>
+    <div style={{textAlign:"right"}}>
+      <div style={{fontFamily:"'Press Start 2P'",fontSize:6,color:T.muted,marginBottom:3}}>NIV. TOTAL</div>
+      <div style={{fontFamily:"VT323",fontSize:44,color:T.gold,lineHeight:1}}>
+        {st.cfg.reduce((a,s)=>a+mkXp(st.stats[s.key]||0).level,0)}
       </div>
     </div>
   </div>
+</div>
 
-  {/* Tabs */}
-  <div style={{display:"flex",borderBottom:`1px solid ${T.border}`,background:T.panel}}>
-    {TABS.map(([k,icon,l])=>(
-      <button key={k} onClick={()=>{setTab(k);setShowAdd(false);}} style={{flex:1,minWidth:50,padding:"10px 2px",background:tab===k?T.panel2:"transparent",border:"none",borderBottom:tab===k?`3px solid ${T.accent}`:"3px solid transparent",color:tab===k?T.accent:T.muted,fontFamily:"'Press Start 2P'",fontSize:9}}>
-        {icon}<br/><span style={{fontSize:5,display:"block",marginTop:2}}>{l}</span>
-      </button>
-    ))}
-  </div>
+{/* ── Tabs ── */}
+<div style={{display:"flex",borderBottom:`2px solid ${T.border}`,background:T.panel,overflowX:"auto"}}>
+  {tabs.map(([k,l])=><button key={k} onClick={()=>setTab(k)} style={{
+    flex:"0 0 auto",padding:"11px 10px",background:tab===k?T.panel2:"transparent",border:"none",
+    borderBottom:tab===k?`3px solid ${T.accent}`:"3px solid transparent",
+    color:tab===k?T.accent:T.muted,fontFamily:"'Press Start 2P'",fontSize:6,whiteSpace:"nowrap"}}>
+    {l}
+  </button>)}
+</div>
 
-  <div style={{padding:"18px 16px",maxWidth:600,margin:"0 auto"}}>
+<div style={{padding:"18px 16px",maxWidth:600,margin:"0 auto"}}>
 
-    {/* Quêtes + Objectifs */}
-    {(tab==="quetes"||tab==="objectifs")&&<>
-      <div style={{marginBottom:18}}>
-        <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
-          <span style={{fontFamily:"'Press Start 2P'",fontSize:7,color:T.accent}}>{isObj?"MES OBJECTIFS":"QUÊTES DU JOUR"}</span>
-          <span style={{fontFamily:"VT323",fontSize:18,color:T.muted}}>{isObj?`${nod}/${state.objs.length}`:`${nd}/${state.tasks.length}`}</span>
-        </div>
-        <Bar v={isObj?nod:nd} m={Math.max(isObj?state.objs.length:state.tasks.length,1)} color={T.accent} h={8}/>
-      </div>
+  {/* ── Quêtes ── */}
+  {tab==="quetes"&&<>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+      <span style={{fontFamily:"'Press Start 2P'",fontSize:7,color:T.accent}}>QUÊTES DU JOUR</span>
+      <span style={{fontFamily:"VT323",fontSize:18,color:T.muted}}>{nbDone}/{quetes.length}</span>
+    </div>
+    <ProgressBar cur={nbDone} max={Math.max(quetes.length,1)} color={T.accent} h={8}/>
+    <div style={{marginBottom:16}}/>
 
-      {(isObj?[...state.objs].sort((a,b)=>{if(a.done!==b.done)return a.done?1:-1;if(!a.deadline&&!b.deadline)return 0;if(!a.deadline)return 1;if(!b.deadline)return -1;return new Date(a.deadline)-new Date(b.deadline);}):state.tasks).map(t=>(
-        <TaskCard key={t.id} task={t} cfg={state.cfg} onAction={doTask} onDel={delTask} isObj={isObj}/>
-      ))}
+    {quetes.length===0&&<div style={{textAlign:"center",padding:48,color:T.muted,fontFamily:"VT323",fontSize:20}}>
+      Aucune quête active 🌸<br/>Ajoute ta première mission !</div>}
+    {quetes.map(t=><TaskCard key={t.id} task={t} cfg={st.cfg} onAction={handleTask} onDel={delTask}/>)}
 
-      {(isObj?state.objs:state.tasks).length===0&&(
-        <div style={{textAlign:"center",padding:48,color:T.muted,fontFamily:"VT323",fontSize:20}}>
-          {isObj?"Aucun objectif 📅":"Aucune quête 🌸"}<br/>Ajoute ta première mission !
-        </div>
-      )}
+    {showAdd
+      ?<AddTaskForm cfg={st.cfg} onAdd={addTask} onClose={()=>setShowAdd(false)}/>
+      :<div style={{display:"flex",gap:8,marginTop:10}}>
+        <button onClick={()=>setShowAdd(true)} style={{flex:1,border:`1px dashed ${T.glow}`,
+          background:"transparent",color:T.accent,padding:"13px",fontFamily:"'Press Start 2P'",fontSize:7}}>
+          ✦ NOUVELLE QUÊTE
+        </button>
+        {nbDone>0&&<button onClick={()=>setSt(p=>({...p,tasks:p.tasks.map(t=>({...t,done:false,at:null}))}))}
+          style={{border:`1px solid ${T.border}`,background:"none",color:T.muted,
+            padding:"13px",fontFamily:"'Press Start 2P'",fontSize:7}}>↺</button>}
+      </div>}
+  </>}
 
-      {showAdd
-        ?<AddForm cfg={state.cfg} isObj={isObj} onAdd={f=>addTask(f,isObj)} onClose={()=>setShowAdd(false)}/>
-        :<div style={{display:"flex",gap:8,marginTop:12}}>
-          <button onClick={()=>setShowAdd(true)} style={{flex:1,border:`1px dashed ${T.bHover}`,background:"transparent",color:T.accent,padding:"13px",borderRadius:10,fontFamily:"'Press Start 2P'",fontSize:7}}>✦ {isObj?"NOUVEL OBJECTIF":"NOUVELLE QUÊTE"}</button>
-          {!isObj&&nd>0&&<button onClick={()=>setState(p=>({...p,tasks:p.tasks.map(t=>({...t,done:false,at:null}))}))} style={{border:`1px solid ${T.border}`,background:"none",color:T.muted,padding:"13px",borderRadius:10,fontFamily:"'Press Start 2P'",fontSize:7}}>↺</button>}
-        </div>
-      }
-    </>}
+  {tab==="objectifs"&&<ObjectifsTab tasks={st.tasks} cfg={st.cfg} onAction={handleTask} onDel={delTask}
+    onAdd={f=>setSt(p=>({...p,tasks:[...p.tasks,{id:uid(),title:f.title,sk:f.sk,
+      sub:f.sub||null,diff:f.diff,timer:f.timer?parseInt(f.timer):null,
+      deadline:f.deadline,done:false,at:null}]}))}/>}
 
-    {/* Stats */}
-    {tab==="stats"&&<>
-      <div style={{fontFamily:"'Press Start 2P'",fontSize:7,color:T.accent,marginBottom:18}}>FICHE DE PERSONNAGE</div>
-      <div style={{background:`linear-gradient(135deg,${T.panel},${T.panel2})`,border:`1px solid ${T.accent}44`,borderRadius:16,padding:16,marginBottom:22,display:"flex",gap:16,alignItems:"center",boxShadow:`0 4px 24px ${T.accent}22`}}>
-        <div style={{fontSize:48,animation:"float 3.5s ease-in-out infinite"}}>🧸</div>
-        <div>
-          <div style={{fontFamily:"VT323",fontSize:28,color:T.text,marginBottom:4}}>{state.playerName}</div>
-          <div style={{fontFamily:"'Press Start 2P'",fontSize:6,color:T.muted,marginBottom:8}}>Classe : Apprentie ✨</div>
-          <div style={{fontFamily:"'Press Start 2P'",fontSize:8,color:T.gold}}>★ Niv. total : {totalLvl}</div>
-        </div>
-      </div>
-      <div style={{fontFamily:"'Press Start 2P'",fontSize:6,color:T.muted,marginBottom:14}}>↓ Clique pour voir les sous-compétences</div>
-      {state.cfg.map(stat=>{
-        const{level,cur,max}=lvl(state.stats[stat.key]||0);
-        const open=!!openSt[stat.key];
-        return(
-          <div key={stat.key} style={{marginBottom:12}}>
-            <div onClick={()=>setOpenSt(p=>({...p,[stat.key]:!p[stat.key]}))} style={{background:T.panel,border:`1px solid ${open?stat.color+"88":stat.color+"33"}`,borderRadius:open?"12px 12px 0 0":12,padding:"12px 14px",cursor:"pointer",boxShadow:open?`0 0 20px ${stat.color}22`:"none",transition:"all .3s"}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-                <span style={{fontFamily:"VT323",fontSize:22,color:stat.color}}>{stat.icon}  {stat.label}</span>
-                <div style={{display:"flex",gap:10,alignItems:"center"}}>
-                  <span style={{fontFamily:"'Press Start 2P'",fontSize:8,color:stat.color}}>Niv.{level}</span>
-                  <span style={{color:T.muted,fontSize:12}}>{open?"▲":"▼"}</span>
-                </div>
-              </div>
-              <Bar v={cur} m={max} color={stat.color}/>
-              <div style={{fontFamily:"'Press Start 2P'",fontSize:6,color:T.muted,marginTop:4,textAlign:"right"}}>{cur}/{max} XP</div>
-            </div>
-            {open&&<div style={{border:`1px solid ${stat.color}33`,borderTop:"none",borderRadius:"0 0 12px 12px",padding:"10px 14px 10px 28px",background:T.panel2,borderLeft:`3px solid ${stat.color}55`}}>
-              {stat.subs.length===0&&<div style={{fontFamily:"VT323",fontSize:16,color:T.muted}}>Aucune sous-comp. — ajoute dans ✨ Perso</div>}
-              {stat.subs.map(sub=>{
-                const si=lvl(state.subs[sub.key]||0);
-                return(
-                  <div key={sub.key} style={{background:T.panel,border:`1px solid ${T.border}33`,borderRadius:8,padding:"9px 12px",marginBottom:6}}>
-                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}>
-                      <span style={{fontFamily:"VT323",fontSize:18,color:T.text}}>{sub.icon} {sub.label}</span>
-                      <span style={{fontFamily:"'Press Start 2P'",fontSize:7,color:T.muted}}>Niv.{si.level}</span>
-                    </div>
-                    <Bar v={si.cur} m={si.max} color={stat.color} h={7}/>
-                  </div>
-                );
-              })}
-            </div>}
-          </div>
-        );
-      })}
-    </>}
-
-    {/* Config */}
-    {tab==="config"&&<ConfigTab state={state} setState={setState}/>}
-
-    {/* Journal */}
-    {tab==="journal"&&<>
-      <div style={{fontFamily:"'Press Start 2P'",fontSize:7,color:T.accent,marginBottom:18}}>JOURNAL D'AVENTURE</div>
-      {state.done.length===0
-        ?<div style={{textAlign:"center",padding:48,color:T.muted,fontFamily:"VT323",fontSize:20}}>Aucune quête accomplie.<br/>C'est ici que commence ta légende 🌸</div>
-        :[...state.done].reverse().map((t,i)=>{
-          const s=state.cfg.find(x=>x.key===t.sk);
-          const sub=s?.subs.find(x=>x.key===t.sub);
-          const d=new Date(t.completedAt);
-          return(
-            <div key={i} style={{border:`1px solid ${T.border}`,borderRadius:10,padding:"10px 14px",marginBottom:8,background:T.panel,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-              <div>
-                <div style={{fontFamily:"VT323",fontSize:19,color:T.muted,marginBottom:3}}>✓ {t.title}</div>
-                <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
-                  {s&&<span style={{fontFamily:"'Press Start 2P'",fontSize:6,color:s.color}}>{s.icon} {s.label}</span>}
-                  {sub&&<span style={{fontFamily:"'Press Start 2P'",fontSize:6,color:T.muted}}>› {sub.icon} {sub.label}</span>}
-                  <span style={{fontFamily:"'Press Start 2P'",fontSize:6,color:T.lav}}>+{t.xpG} XP{t.bonus?" ⚡":""}</span>
-                </div>
-              </div>
-              <div style={{fontFamily:"VT323",fontSize:14,color:T.muted,textAlign:"right",flexShrink:0,marginLeft:10}}>
-                {d.toLocaleDateString("fr-FR")}<br/><span style={{fontSize:12}}>{d.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})}</span>
-              </div>
-            </div>
-          );
-        })
-      }
-    </>}
-
-  </div>
+  {tab==="stats"&&<StatsTab cfg={st.cfg} stats={st.stats} subStats={st.subStats}/>}
+  {tab==="journal"&&<JournalTab done={st.done} cfg={st.cfg}/>}
+  {tab==="config"&&<ConfigTab cfg={st.cfg} onSave={saveCfg}/>}
 </div>
 ```
 
-);
+  </div>;
 }
+
+ReactDOM.createRoot(document.getElementById(“root”)).render(<App/>);
+</script>
+
+</body>
+</html>
